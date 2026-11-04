@@ -16,6 +16,16 @@ interface OfflineReminderPayload {
 function createReloginReminderService(options: ReloginReminderOptions) {
     const { store, sendPushooMessage, log } = options;
 
+    // 推送配置问题的报错只提醒一次：账号掉线循环重试期间会反复触发提醒，
+    // 同一条配置错误刷屏 error 日志没有额外价值；配置变更后允许再次提示。
+    let lastConfigErrorReason = '';
+
+    function reportConfigError(reason: string): void {
+        if (reason === lastConfigErrorReason) return;
+        lastConfigErrorReason = reason;
+        log('错误', `${reason}（同一问题只提示一次，修正推送配置后会重新校验）`);
+    }
+
     function getOfflineAutoDeleteMs(): number {
         const cfg = store.getOfflineReminder ? store.getOfflineReminder() : null;
         const sec = Math.max(0, Number.parseInt(cfg?.offlineDeleteSec, 10) || 0);
@@ -61,9 +71,10 @@ function createReloginReminderService(options: ReloginReminderOptions) {
         try {
             const channelCfg = resolvePushChannel();
             if (channelCfg.ok === false) {
-                log('错误', channelCfg.reason);
+                reportConfigError(channelCfg.reason);
                 return;
             }
+            lastConfigErrorReason = '';
             if (!title || !content) {
                 log('错误', '推送标题或内容为空');
                 return;
