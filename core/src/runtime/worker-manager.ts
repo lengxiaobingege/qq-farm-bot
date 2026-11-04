@@ -292,6 +292,20 @@ function createWorkerManager(options: WorkerManagerOptions) {
                 profileChanged = true;
             }
 
+            // 角色编号（gid）/ QQ 号（uin）：登录后从服务器返回，落库供面板展示与自动重登使用
+            const storedAccount = (require('../models/store/accounts').getAccounts() as any[])
+                .find((v: any) => String(v.id) === String(accountId)) || {};
+            const newGid = String(profile.gid || '').trim();
+            if (newGid && newGid !== '0' && String(storedAccount.gid || '') !== newGid) {
+                accountUpdate.gid = newGid;
+                profileChanged = true;
+            }
+            const newUin = String(profile.uin || '').trim();
+            if (newUin && newUin !== '0' && String(storedAccount.uin || '') !== newUin) {
+                accountUpdate.uin = newUin;
+                profileChanged = true;
+            }
+
             if (profileChanged) {
                 addOrUpdateAccount(accountUpdate);
             }

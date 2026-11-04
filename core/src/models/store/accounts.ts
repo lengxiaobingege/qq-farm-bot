@@ -60,6 +60,7 @@ function normalizeAccount(raw: any): Account {
         platform: String(source.platform || 'qq'),
         uin: String(source.uin || ''),
         qq: String(source.qq || source.uin || ''),
+        gid: String(source.gid || ''),
         avatar: String(source.avatar || source.avatarUrl || ''),
         createdAt: Number(source.createdAt) || Date.now(),
         updatedAt: Number(source.updatedAt) || Date.now(),
@@ -88,7 +89,7 @@ function addOrUpdateAccount(acc: Partial<Account> & { avatarUrl?: string }): Acc
     let touchedAccountId = '';
     const source: any = acc || {};
     const cleanAccount: any = {};
-    for (const key of ['id', 'name', 'code', 'platform', 'uin', 'qq', 'avatar', 'avatarUrl', 'nick', 'loginBuffer', 'wxOpenId', 'wxAccessToken', 'wxRefreshToken', 'wxExpiresAt', 'wxExpiresIn', 'wxLoginType', 'wxRefreshTokenObservedAt', 'wechatAutoRelogin', 'hasCode', 'hasLoginBuffer']) {
+    for (const key of ['id', 'name', 'code', 'platform', 'uin', 'qq', 'gid', 'uid', 'avatar', 'avatarUrl', 'nick', 'loginBuffer', 'wxOpenId', 'wxAccessToken', 'wxRefreshToken', 'wxExpiresAt', 'wxExpiresIn', 'wxLoginType', 'wxRefreshTokenObservedAt', 'wechatAutoRelogin', 'hasCode', 'hasLoginBuffer']) {
         if (source[key] !== undefined) cleanAccount[key] = source[key];
     }
     acc = cleanAccount;
@@ -108,6 +109,7 @@ function addOrUpdateAccount(acc: Partial<Account> & { avatarUrl?: string }): Acc
             platform: acc.platform || 'qq',
             uin: acc.uin ? String(acc.uin) : '',
             qq: acc.qq ? String(acc.qq) : (acc.uin ? String(acc.uin) : ''),
+            gid: acc.gid ? String(acc.gid) : '',
             avatar: acc.avatar || acc.avatarUrl || '',
             createdAt: Date.now(),
             updatedAt: Date.now(),

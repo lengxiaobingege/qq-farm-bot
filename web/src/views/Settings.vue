@@ -130,8 +130,11 @@ function handleAccountAvatarError(account: any) {
     accountAvatarErrors.value.add(accountId)
 }
 
-// 微信账号没有 QQ 号(uin)，用 openId 尾号标识；hasLoginBuffer 表示已保存微信登录态
+// 游戏「角色编号」即 gid；微信账号没有 QQ 号(uin)，回退到微信登录状态
 function getAccountIdentity(account: any) {
+  const gid = String(account?.gid || '').trim()
+  if (gid && gid !== '0')
+    return `角色编号 ${gid}`
   const uin = String(account?.uin || '').trim()
   const id = String(account?.id || '').trim()
   const idPrefix = id ? `ID ${id} · ` : ''

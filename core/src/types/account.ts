@@ -6,6 +6,8 @@ export interface Account {
   platform: string;
   uin: string;
   qq: string;
+  /** 游戏角色编号（面板「角色编号」），登录后由服务器下发 */
+  gid?: string;
   avatar: string;
   nick?: string;
   createdAt: number;
