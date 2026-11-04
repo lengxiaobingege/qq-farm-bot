@@ -166,11 +166,23 @@ async function autoMilkTea(): Promise<{ claimed: number; message: string }> {
     }
 }
 
+// 节令日历当天只执行一次：记录最近一次执行的服务器日期，同一天内不再查询/操作
+let lastSolarRunDay = '';
+
+function serverDayKey(serverTimeSec: number): string {
+    return new Date(serverTimeSec * 1000).toISOString().slice(0, 10);
+}
+
 async function autoSolar(): Promise<{ claimed: number; message: string }> {
     if (!isAutomationOn('activity_task')) return { claimed: 0, message: '自动化未开启' };
     try {
+        const todayKey = serverDayKey(getServerTimeSec());
+        if (todayKey === lastSolarRunDay) return { claimed: 0, message: '' };
+
         const calendar: any = await getSolarCalendar();
         const now = toNum(calendar.serverTime);
+        // 查询成功即视为今天已执行过；明天(服务器时间)才会再次检查
+        lastSolarRunDay = serverDayKey(now);
         // 只有节令开始（开放窗口内）才执行操作；窗口外不打扰、不写日志
         const active = (calendar.events || []).filter((v: any) =>
             toNum(v.startTime) <= now && toNum(v.endTime) >= now);
