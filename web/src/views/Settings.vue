@@ -130,6 +130,19 @@ function handleAccountAvatarError(account: any) {
     accountAvatarErrors.value.add(accountId)
 }
 
+// 微信账号没有 QQ 号(uin)，用 openId 尾号标识；hasLoginBuffer 表示已保存微信登录态
+function getAccountIdentity(account: any) {
+  const uin = String(account?.uin || '').trim()
+  if (uin)
+    return uin
+  const openId = String(account?.wxOpenId || '').trim()
+  if (openId)
+    return `微信 …${openId.slice(-6)}`
+  if (account?.platform === 'wx')
+    return account?.hasLoginBuffer ? '微信登录' : '微信登录（未保存登录态）'
+  return '未绑定'
+}
+
 const stoppedAccounts = computed(() => accounts.value.filter((acc: any) => !acc.running))
 const stoppedAccountsCount = computed(() => stoppedAccounts.value.length)
 
@@ -1553,7 +1566,7 @@ async function handleResetSystemConfig() {
                         {{ getPlatformLabel(acc.platform) }}
                       </span>
                       <span class="truncate text-xs text-gray-500 sm:text-sm">
-                        {{ acc.uin || '未绑定' }}
+                        {{ getAccountIdentity(acc) }}
                       </span>
                     </div>
                   </div>

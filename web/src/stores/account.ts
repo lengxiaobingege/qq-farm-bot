@@ -8,9 +8,12 @@ export interface Account {
   name: string
   nick?: string
   uin?: number
+  gid?: string
   avatar?: string
   platform?: string
   running?: boolean
+  wxOpenId?: string
+  hasLoginBuffer?: boolean
   // Add other fields as discovered
 }
 
