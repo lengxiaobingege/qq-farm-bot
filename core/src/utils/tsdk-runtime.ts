@@ -296,9 +296,9 @@ class TsdkRuntime {
                 m: (ptr: number, capacity: number) => this.writeCString(this.hostProfile.appId, ptr, capacity),
                 n: (ptr: number, capacity: number) => this.writeCString(this.hostProfile.appId, ptr, capacity),
                 // The WeChat import also writes environment-probe results; a missing probe must not be reported as passed.
-                o: () => this.warnOnce('integrity-functions', this.hostProfile.platform === 'wx'
-                    ? 'Node.js 环境不提供微信小游戏环境探测接口'
-                    : 'Node.js 环境不提供小游戏函数完整性列表'),
+                // wx 平台缺失探测接口属预期（Node 无微信小游戏环境），不再输出日志；qq 平台保留提醒。
+                o: () => this.hostProfile.platform !== 'wx'
+                    && this.warnOnce('integrity-functions', 'Node.js 环境不提供小游戏函数完整性列表'),
                 p: (filePtr: number) => {
                     try {
                         const stat = fs.statSync(this.resolveDataPath(this.readCString(filePtr)));
