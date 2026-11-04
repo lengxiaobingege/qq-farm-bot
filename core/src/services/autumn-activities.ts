@@ -44,8 +44,10 @@ async function query(key: string): Promise<any> {
     const event = eventFor(key);
     const body = types.GetGroupRequest.encode({ group_id: event.groupId }).finish();
     const reply = await sendMsgAsync('gamepb.activitypb.ActivityService', 'GetGroup', body);
-    const entry = findEntry(types.GetGroupReply.decode(reply.body).group, event.id);
-    if (!entry?.[event.field]) fail('AUTUMN_STATE_UNAVAILABLE', '活动动态状态未返回，请稍后刷新');
+    const group = types.GetGroupReply.decode(reply.body).group;
+    const entry = findEntry(group, event.id);
+    if (!entry) fail('AUTUMN_ACTIVITY_ENDED', '活动已结束或未开放');
+    if (!entry[event.field]) fail('AUTUMN_STATE_UNAVAILABLE', '活动动态状态未返回，请稍后刷新');
     return entry;
 }
 

@@ -12,6 +12,15 @@ const { log } = require('./utils');
 let root: protobuf.Root | null = null;
 const types: Record<string, protobuf.Type> = {};
 
+// 首次加载的单例 promise：供 API 层在编码前等待 proto 就绪，避免启动竞态
+let loadPromise: Promise<void> | null = null;
+function ensureProtoLoaded(): Promise<void> {
+    if (!loadPromise) {
+        loadPromise = loadProto().catch((err) => { loadPromise = null; throw err; });
+    }
+    return loadPromise;
+}
+
 async function loadProto(): Promise<void> {
     log('系统', '正在加载 Protobuf 定义...');
     root = new protobufModule.Root();
@@ -406,4 +415,4 @@ async function loadProto(): Promise<void> {
     log('系统', 'Protobuf 定义加载完成');
 }
 
-module.exports = { loadProto, types };
+module.exports = { loadProto, ensureProtoLoaded, types };

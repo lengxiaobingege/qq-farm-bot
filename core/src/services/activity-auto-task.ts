@@ -18,6 +18,25 @@ const EVENT_IDS = {
 
 const MILK_GROUP_ID = '2026110100';
 
+// 同一活动的同一错误短时间内不重复写日志，避免活动结束/资源不足时每个 tick 刷屏
+const ERROR_REPEAT_WINDOW_MS = 30 * 60 * 1000;
+const lastErrorByActivity = new Map<string, { message: string; at: number }>();
+
+function logActivityError(key: string, label: string, e: any): string {
+    const message = String(e?.message || e);
+    const now = Date.now();
+    const last = lastErrorByActivity.get(key);
+    if (last && last.message === message && now - last.at < ERROR_REPEAT_WINDOW_MS) {
+        return `${label}失败(已静默): ${message}`;
+    }
+    lastErrorByActivity.set(key, { message, at: now });
+    const ended = e?.code === 'AUTUMN_ACTIVITY_ENDED' || e?.code === 'SHARE_REWARD_ENDED';
+    log('活动任务', `${label}${ended ? '已结束或未开放' : `自动化失败: ${message}`}`, {
+        module: 'activity_task', event: key, result: 'error',
+    });
+    return `${label}失败: ${message}`;
+}
+
 async function autoWish(): Promise<{ claimed: number; message: string }> {
     if (!isAutomationOn('activity_task')) return { claimed: 0, message: '自动化未开启' };
     try {
@@ -38,8 +57,7 @@ async function autoWish(): Promise<{ claimed: number; message: string }> {
         }
         return { claimed, message: claimed > 0 ? `秋祈完成 ${claimed} 项` : '秋祈无可执行任务' };
     } catch (e: any) {
-        log('活动任务', `秋祈自动化失败: ${e.message}`, { module: 'activity_task', event: 'wish', result: 'error' });
-        return { claimed: 0, message: `秋祈失败: ${e.message}` };
+        return { claimed: 0, message: logActivityError('wish', '秋祈', e) };
     }
 }
 
@@ -69,8 +87,7 @@ async function autoHappy(): Promise<{ claimed: number; message: string }> {
         }
         return { claimed, message: claimed > 0 ? `快乐包完成 ${claimed} 项` : '快乐包无可执行任务' };
     } catch (e: any) {
-        log('活动任务', `快乐包自动化失败: ${e.message}`, { module: 'activity_task', event: 'happy', result: 'error' });
-        return { claimed: 0, message: `快乐包失败: ${e.message}` };
+        return { claimed: 0, message: logActivityError('happy', '快乐包', e) };
     }
 }
 
@@ -206,8 +223,7 @@ async function autoMilkTea(): Promise<{ claimed: number; message: string }> {
 
         return { claimed, message: claimed > 0 ? `奶茶完成 ${claimed} 项` : '奶茶无可执行任务' };
     } catch (e: any) {
-        log('活动任务', `奶茶自动化失败: ${e.message}`, { module: 'activity_task', event: 'milk', result: 'error' });
-        return { claimed: 0, message: `奶茶失败: ${e.message}` };
+        return { claimed: 0, message: logActivityError('milk', '奶茶', e) };
     }
 }
 
@@ -227,8 +243,7 @@ async function autoPumpkin(): Promise<{ claimed: number; message: string }> {
         log('活动任务', '南瓜乐翻天处于活跃状态，暂无可自动化操作', { module: 'activity_task', event: 'pumpkin', result: 'ok' });
         return { claimed: 0, message: '南瓜活动活跃中，暂无可自动化操作' };
     } catch (e: any) {
-        log('活动任务', `南瓜自动化失败: ${e.message}`, { module: 'activity_task', event: 'pumpkin', result: 'error' });
-        return { claimed: 0, message: `南瓜失败: ${e.message}` };
+        return { claimed: 0, message: logActivityError('pumpkin', '南瓜', e) };
     }
 }
 

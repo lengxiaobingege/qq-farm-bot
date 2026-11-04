@@ -5,7 +5,7 @@ export {};
 
 const protobuf = require('protobufjs');
 const { sendMsgAsync, getUserState } = require('../../utils/network');
-const { types } = require('../../utils/proto');
+const { types, ensureProtoLoaded } = require('../../utils/proto');
 const { toLong, toNum, sleep, randomDelay, log, logWarn } = require('../../utils/utils');
 
 // 操作限制更新回调 (由 friend.js 设置)
@@ -33,6 +33,10 @@ async function sendPlantRequest(
 }
 
 async function getAllLands(): Promise<any> {
+    await ensureProtoLoaded();
+    if (!types.AllLandsRequest?.encode || !types.AllLandsReply?.decode) {
+        throw new Error('protobuf 类型 AllLandsRequest/AllLandsReply 未加载');
+    }
     const forecast = require('../level-forecast');
     const revision = forecast.getLandForecastRevision();
     const body = types.AllLandsRequest.encode(types.AllLandsRequest.create({})).finish();

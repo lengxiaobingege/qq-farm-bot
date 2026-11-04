@@ -48,6 +48,7 @@ async function getShareRewardActivity(activityId: unknown) {
     const body = types.GetGroupRequest.encode({ group_id: instance.groupId }).finish();
     const response = await sendMsgAsync('gamepb.activitypb.ActivityService', 'GetGroup', body);
     const entry = findEntry(types.GetGroupReply.decode(response.body).group, instance.activityId);
+    if (!entry) fail('SHARE_REWARD_ENDED', '活动已结束或未开放');
     const summary = entry?.share_reward?.summary;
     if (!summary?.daily) fail('SHARE_REWARD_STATE_UNAVAILABLE', '活动进度未返回，请稍后刷新');
     const head = entry.activity;
