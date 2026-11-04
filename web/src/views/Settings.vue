@@ -134,7 +134,7 @@ function handleAccountAvatarError(account: any) {
 function getAccountIdentity(account: any) {
   const gid = String(account?.gid || '').trim()
   if (gid && gid !== '0')
-    return `角色编号 ${gid}`
+    return gid
   const uin = String(account?.uin || '').trim()
   const id = String(account?.id || '').trim()
   const idPrefix = id ? `ID ${id} · ` : ''
