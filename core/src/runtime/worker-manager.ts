@@ -293,17 +293,22 @@ function createWorkerManager(options: WorkerManagerOptions) {
             }
 
             // 角色编号（gid）/ QQ 号（uin）：登录后从服务器返回，落库供面板展示与自动重登使用
-            const storedAccount = (require('../models/store/accounts').getAccounts() as any[])
-                .find((v: any) => String(v.id) === String(accountId)) || {};
-            const newGid = String(profile.gid || '').trim();
-            if (newGid && newGid !== '0' && String(storedAccount.gid || '') !== newGid) {
-                accountUpdate.gid = newGid;
-                profileChanged = true;
-            }
-            const newUin = String(profile.uin || '').trim();
-            if (newUin && newUin !== '0' && String(storedAccount.uin || '') !== newUin) {
-                accountUpdate.uin = newUin;
-                profileChanged = true;
+            try {
+                const storedAccount = ((require('../models/store/accounts').getAccounts().accounts || []) as any[])
+                    .find((v: any) => String(v.id) === String(accountId)) || {};
+                const newGid = String(profile.gid || '').trim();
+                if (newGid && newGid !== '0' && String(storedAccount.gid || '') !== newGid) {
+                    accountUpdate.gid = newGid;
+                    profileChanged = true;
+                }
+                const newUin = String(profile.uin || '').trim();
+                if (newUin && newUin !== '0' && String(storedAccount.uin || '') !== newUin) {
+                    accountUpdate.uin = newUin;
+                    profileChanged = true;
+                }
+            } catch (err) {
+                // 账号档案同步失败不能中断状态处理（连接状态、离线超时逻辑都在这之后）
+                log('错误', `同步账号角色编号失败: ${(err as any)?.message || err}`, { accountId, accountName: worker.name });
             }
 
             if (profileChanged) {
