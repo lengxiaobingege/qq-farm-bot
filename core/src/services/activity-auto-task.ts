@@ -65,7 +65,7 @@ async function autoMilkTea(): Promise<{ claimed: number; message: string }> {
             const slots = Array.isArray(shopState.shop?.slots) ? shopState.shop.slots : [];
             const hasEmptySlot = !slots.some((v: any) => toNum(v.end_at) > now);
             if (!hasEmptySlot) break;
-            const hireState = await getMilkTeaActivity('hireList', { durationId: 1 });
+            const hireState = await getMilkTeaActivity('hireList', { durationId: 3 });
             const candidates = [...(hireState.hire?.friends || []), ...(hireState.hire?.robots || [])]
                 .filter((v: any) => toNum(v.state) === 0 && toNum(v.rehire_available_at) <= now);
             if (candidates.length === 0) break;
