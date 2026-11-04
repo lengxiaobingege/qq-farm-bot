@@ -92,16 +92,30 @@ async function autoMilkTea(): Promise<{ claimed: number; message: string }> {
             const target = candidates[0];
             const targetGid = String(target.friend?.gid || target.robot?.gid || target.gid);
             const wageTotal = toNum(hireState.hire.wage_total);
-            const ok = await safeStep('雇佣员工', async () => {
-                await operateMilkTeaActivity('hire', {
-                    targetGid,
-                    expectedCosts: [{ id: 1041, count: wageTotal }]
+            // 优先 24 小时档（durationId 3），奶茶券不够时降档（12h→4h），有多少花多少
+            const DURATIONS = [
+                { durationId: 3, label: '24小时' },
+                { durationId: 2, label: '12小时' },
+                { durationId: 1, label: '4小时' },
+            ];
+            let hired = false;
+            for (const dur of DURATIONS) {
+                const list = dur.durationId === 3
+                    ? hireState
+                    : await getMilkTeaActivity('hireList', { durationId: dur.durationId });
+                const wage = dur.durationId === 3 ? wageTotal : toNum(list.hire.wage_total);
+                const ok = await safeStep(`雇佣员工(${dur.label})`, async () => {
+                    await operateMilkTeaActivity('hire', {
+                        targetGid,
+                        expectedCosts: [{ id: 1041, count: wage }]
+                    });
+                    claimed += 1;
+                    log('活动任务', `奶茶自动雇佣员工（${dur.label}档，工资 ${wage} 奶茶券）`, { module: 'activity_task', event: 'hire_milk_employee', result: 'ok', durationId: dur.durationId, wage });
                 });
-                claimed += 1;
-                log('活动任务', '奶茶自动雇佣员工', { module: 'activity_task', event: 'hire_milk_employee', result: 'ok' });
-            });
+                if (ok) { hired = true; break; }
+            }
             await sleep(500);
-            if (!ok) { hireSkipped = true; break; }
+            if (!hired) { hireSkipped = true; break; }
             shopState = await getMilkTeaActivity('shop');
         }
 
