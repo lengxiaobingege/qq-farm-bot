@@ -7,6 +7,7 @@ const { getRuntimeConfig } = require('../../config/config');
 const { getSchedulerRegistrySnapshot } = require('../../services/scheduler');
 const { createModuleLogger } = require('../../services/logger');
 const adminStore = require('../../models/admin-store');
+const { saveSessions } = require('./session-store');
 
 const {
     getClientIp,
@@ -42,6 +43,7 @@ function mountAuthRoutes(app: Application, ctx: AdminContext): void {
 
         const token = issueToken();
         ctx.tokens.add(token);
+        saveSessions(ctx.tokens);
         adminLogger.info('超级管理员登录成功', { username: result.username, ip: clientIp });
         return res.json({
             ok: true,
@@ -60,7 +62,10 @@ function mountAuthRoutes(app: Application, ctx: AdminContext): void {
             return res.status(400).json({ ok: false, error: '请提供原密码和新密码' });
         }
         const result = adminStore.changePassword(String(oldPassword), String(newPassword));
-        if (result.ok) ctx.tokens.clear();
+        if (result.ok) {
+            ctx.tokens.clear();
+            saveSessions(ctx.tokens);
+        }
         return res.json(result);
     });
 
@@ -104,7 +109,10 @@ function mountAuthRoutes(app: Application, ctx: AdminContext): void {
 
     app.post('/api/logout', (req: Request, res: Response) => {
         const token = (req as any).adminToken;
-        if (token) ctx.tokens.delete(token);
+        if (token) {
+            ctx.tokens.delete(token);
+            saveSessions(ctx.tokens);
+        }
         if (ctx.io && token) {
             for (const socket of ctx.io.sockets.sockets.values()) {
                 if (String((socket.data as any).adminToken || '') === String(token)) socket.disconnect(true);
