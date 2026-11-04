@@ -2,6 +2,7 @@ import autumnConfig from '../activity-data/autumn-20260924.json';
 
 export {};
 
+const { ignoreError } = require('../utils/ignore-error');
 const { sendMsgAsync } = require('../utils/network');
 const { types } = require('../utils/proto');
 const { getServerTimeSec, toNum } = require('../utils/utils');
@@ -56,7 +57,7 @@ function normalize(key: string, entry: any): any {
     const endTime = toNum(head.end_time);
     const active = startTime <= now && endTime > now;
     let rules: string[] = [];
-    try { rules = JSON.parse(Buffer.from(head.extra || []).toString('utf8')).tips.txt.filter((v: any) => typeof v === 'string').map((v: string) => v.replace(/<[^>]+>/g, '')); } catch {}
+    try { rules = JSON.parse(Buffer.from(head.extra || []).toString('utf8')).tips.txt.filter((v: any) => typeof v === 'string').map((v: string) => v.replace(/<[^>]+>/g, '')); } catch (err) { ignoreError('core/src/services/autumn-activities.ts:59', err); }
     const base = { key, id: String(event.id), title: event.title, serverTime: now * 1000, startTime: startTime * 1000, endTime: endTime * 1000, active, rules };
     if (key === 'wish') {
         const state = entry.wish_sign;

@@ -2,6 +2,7 @@ import instances from '../activity-data/share-reward-instances.json';
 
 export {};
 
+const { ignoreError } = require('../utils/ignore-error');
 const { sendMsgAsync } = require('../utils/network');
 const { types } = require('../utils/proto');
 const { getServerTimeSec, toNum } = require('../utils/utils');
@@ -55,7 +56,7 @@ async function getShareRewardActivity(activityId: unknown) {
     const endTime = toNum(head.end_time);
     const active = startTime <= now && endTime > now;
     let rules: string[] = [];
-    try { rules = JSON.parse(Buffer.from(head.extra || []).toString('utf8')).tips.txt.filter((v: any) => typeof v === 'string').map((v: string) => v.replace(/<[^>]+>/g, '')); } catch {}
+    try { rules = JSON.parse(Buffer.from(head.extra || []).toString('utf8')).tips.txt.filter((v: any) => typeof v === 'string').map((v: string) => v.replace(/<[^>]+>/g, '')); } catch (err) { ignoreError('core/src/services/share-reward-activity.ts:58', err); }
     return {
         id: instance.activityId, title: instance.title, icon: instance.icon,
         serverTime: now * 1000, startTime: startTime * 1000, endTime: endTime * 1000, active, rules,

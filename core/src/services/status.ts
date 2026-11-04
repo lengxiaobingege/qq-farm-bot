@@ -3,6 +3,7 @@ export {};
  * 状态栏 - 在终端固定位置显示用户状态
  */
 
+const { ignoreError } = require('../utils/ignore-error');
 const { getLevelExpTable, getLevelExpProgress } = require('../config/gameConfig');
 
 // 统计钩子（可选，admin 未加载时为空）
@@ -152,7 +153,7 @@ function updateStatus(data: Partial<StatusData>): void {
     if (changed) {
         if (statusEnabled) renderStatusBar();
         if (recordGoldExpHook && (data.gold !== undefined || data.exp !== undefined)) {
-            try { recordGoldExpHook(statusData.gold, statusData.exp); } catch {}
+            try { recordGoldExpHook(statusData.gold, statusData.exp); } catch (err) { ignoreError('core/src/services/status.ts:155', err); }
         }
     }
 }

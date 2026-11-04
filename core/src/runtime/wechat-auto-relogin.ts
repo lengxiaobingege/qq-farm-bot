@@ -6,6 +6,7 @@ const {
     accountFieldsFromCredentials,
     credentialsFromAccount,
 } = require('../services/wx-login/service');
+const { ignoreError } = require('../utils/ignore-error');
 const { createScheduler } = require('../services/scheduler');
 const { isHostSleepReason } = require('../utils/host-sleep');
 const { getServerTimeSec, toNum, log, sleep, unixSeconds } = require('../utils/utils');
@@ -104,7 +105,7 @@ function createWechatAutoReloginService(options: WechatAutoReloginOptions) {
                 if (!account || String(account.platform || '').toLowerCase() !== 'wx') continue;
                 if (account?.wechatAutoRelogin === false) continue;
                 await refreshSessionIfNeeded(account);
-            } catch {}
+            } catch (err) { ignoreError('core/src/runtime/wechat-auto-relogin.ts:107', err); }
         }
     }
 
@@ -117,7 +118,7 @@ function createWechatAutoReloginService(options: WechatAutoReloginOptions) {
                     if (!account || String(account.platform || '').toLowerCase() !== 'wx') continue;
                     if (account?.wechatAutoRelogin === false) continue;
                     await refreshSessionIfNeeded(account);
-                } catch {}
+                } catch (err) { ignoreError('core/src/runtime/wechat-auto-relogin.ts:120', err); }
             }
         }, { preventOverlap: true });
     }

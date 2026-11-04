@@ -1,5 +1,6 @@
 export {};
 
+const { ignoreError } = require('../../utils/ignore-error');
 function createQixiActivityService(deps: any) {
     const {
         types,
@@ -191,10 +192,10 @@ function createQixiActivityService(deps: any) {
         let sellContext: any = null;
         try {
             balances = readBagBalances(await getBag(), [QIXI_FEATHER_ITEM_ID, QIXI_SACHET_ITEM_ID, QIXI_RECEIVED_SACHET_ITEM_ID, QIXI_DEW_ITEM_ID]);
-        } catch {}
+        } catch (err) { ignoreError('core/src/services/activity-center/qixi.ts:194', err); }
         try {
             sellContext = await getSellConditionContext();
-        } catch {}
+        } catch (err) { ignoreError('core/src/services/activity-center/qixi.ts:197', err); }
         return qixiDto(groupReply, balances, sellContext);
     }
 

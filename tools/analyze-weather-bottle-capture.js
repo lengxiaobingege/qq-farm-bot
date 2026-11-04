@@ -60,7 +60,7 @@ function rawFields(buffer, depth = 0) {
         try {
             const nested = rawFields(value, depth + 1);
             if (nested.fields.length) entry.nested = nested.fields;
-        } catch {}
+        } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/analyze-weather-bottle-capture.js:63', err); }
         fields.push(entry);
     }
     return { fields };
@@ -117,7 +117,7 @@ function decodeActivityData(root, buffer) {
             node.known.weather_research = researchType.toObject(decoded, { longs: String, bytes: String });
         } else {
             const entry = { field, wire, size: value.length };
-            try { entry.raw = rawFields(value); } catch {}
+            try { entry.raw = rawFields(value); } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/analyze-weather-bottle-capture.js:120', err); }
             node.unknown.push(entry);
         }
     }

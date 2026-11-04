@@ -27,6 +27,7 @@ const {
     emitRealtimeLog: _emitLog,
     emitRealtimeAccountLog: _emitAccountLog,
 } = require('./socket');
+const { applyCors } = require('./cors');
 
 const adminLogger = createModuleLogger('admin');
 
@@ -43,22 +44,9 @@ function startAdminServer(dataProvider: any): void {
 
     ctx.app = app;
 
+    // 收紧跨域：仅白名单/同源可访问，其余跨域请求（含预检）直接 403
     app.use((req: any, res: any, next: any) => {
-        const allowedOrigins: string[] = CONFIG.ALLOWED_ORIGINS || ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
-        const origin = req.headers.origin;
-
-        if (origin && allowedOrigins.includes(origin)) {
-            res.header('Access-Control-Allow-Origin', origin);
-        } else if (!origin) {
-            res.header('Access-Control-Allow-Origin', '*');
-        }
-
-        res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS, PUT');
-        res.header('Access-Control-Allow-Headers', 'Content-Type, x-account-id, x-admin-token, x-proxy-api-key, x-proxy-api-url, x-proxy-app-id');
-        res.header('Access-Control-Allow-Credentials', 'true');
-        res.header('Access-Control-Max-Age', '86400');
-
-        if (req.method === 'OPTIONS') return res.sendStatus(200);
+        if (!applyCors(req, res)) return;
         next();
     });
 

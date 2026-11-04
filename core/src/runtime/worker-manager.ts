@@ -1,4 +1,5 @@
 export {};
+const { ignoreError } = require('../utils/ignore-error');
 const { createScheduler } = require('../services/scheduler');
 
 const DEFAULT_API_CALL_TIMEOUT_MS = 10000;
@@ -176,7 +177,7 @@ function createWorkerManager(options: WorkerManagerOptions) {
                     managerScheduler.clear(`api_timeout_${account.id}_${reqId}`);
                     try {
                         req.reject(new Error('Worker exited'));
-                    } catch {}
+                    } catch (err) { ignoreError('core/src/runtime/worker-manager.ts:179', err); }
                 }
                 current.requests.clear();
             }
@@ -226,7 +227,7 @@ function createWorkerManager(options: WorkerManagerOptions) {
             if (!current || current.process !== proc) return false;
             try {
                 current.process.kill();
-            } catch {}
+            } catch (err) { ignoreError('core/src/runtime/worker-manager.ts:229', err); }
             delete workers[accountId];
             return true;
         };
@@ -380,7 +381,7 @@ function createWorkerManager(options: WorkerManagerOptions) {
             if (worker.requests.size > 0) {
                 for (const [reqId, req] of worker.requests.entries()) {
                     managerScheduler.clear(`api_timeout_${accountId}_${reqId}`);
-                    try { req.reject(new Error('账号连接已断开')); } catch {}
+                    try { req.reject(new Error('账号连接已断开')); } catch (err) { ignoreError('core/src/runtime/worker-manager.ts:383', err); }
                 }
                 worker.requests.clear();
             }

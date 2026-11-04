@@ -120,7 +120,7 @@ async function main() {
         let decoded = null;
         try {
             decoded = direction === 'SEND' ? requestType.decode(body) : replyType.decode(body);
-        } catch {}
+        } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/analyze-charity-red-flower-capture.js:123', err); }
         const activityId = integer(decoded?.activity_id);
         if (activityId !== '2026090901') continue;
 

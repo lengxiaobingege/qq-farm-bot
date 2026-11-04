@@ -1,5 +1,6 @@
 export {};
 
+const { ignoreError } = require('../../utils/ignore-error');
 function createCharityActivityService(deps: any) {
     const {
         types,
@@ -116,7 +117,7 @@ function createCharityActivityService(deps: any) {
         lastCharityRedFlowerState.set(activityId, reconciled);
         try {
             lastCharityRedFlowerState.set(activityId, persistCharityRedFlowerState(reconciled, activityId));
-        } catch {}
+        } catch (err) { ignoreError('core/src/services/activity-center/charity.ts:119', err); }
         return reconciled;
     }
 
@@ -136,7 +137,7 @@ function createCharityActivityService(deps: any) {
         lastCharityRedFlowerState.set(activityId, next);
         try {
             lastCharityRedFlowerState.set(activityId, persistCharityRedFlowerState(next, activityId));
-        } catch {}
+        } catch (err) { ignoreError('core/src/services/activity-center/charity.ts:139', err); }
     }
 
     function charityRedFlowerDto(entry: any, progressStateValue: unknown = null, activityWindow: any = null) {

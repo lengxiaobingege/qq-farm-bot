@@ -77,7 +77,7 @@ function readSettings(sourceDir) {
             if (typeof server === 'string' && server && typeof bundleVersion === 'string' && bundleVersion) {
                 candidates.push({ filePath, server, bundleVersion });
             }
-        } catch {}
+        } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/download-game-config.js:80', err); }
     }
     if (candidates.length === 0) throw new Error(`在 ${srcDir} 中未找到包含 assets.server 和 ${BUNDLE_NAME} 版本的 settings JSON`);
     if (candidates.length > 1) throw new Error(`发现多个有效 settings 文件: ${candidates.map(item => item.filePath).join(', ')}`);
@@ -340,7 +340,7 @@ function writeAllAtomically(outputDir, resources, configsByPath) {
             fs.renameSync(record.tempPath, record.finalPath);
             record.installed = true;
         }
-        for (const record of records) if (record.hadOriginal && fs.existsSync(record.backupPath)) { try { fs.unlinkSync(record.backupPath); } catch {} }
+        for (const record of records) if (record.hadOriginal && fs.existsSync(record.backupPath)) { try { fs.unlinkSync(record.backupPath); } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/download-game-config.js:343', err); } }
     } catch (error) {
         const rollbackErrors = [];
         for (const record of [...records].reverse()) {
@@ -352,7 +352,7 @@ function writeAllAtomically(outputDir, resources, configsByPath) {
         if (rollbackErrors.length > 0) error.message += `；回滚失败，备份文件已保留: ${rollbackErrors.join(' | ')}`;
         throw error;
     } finally {
-        for (const record of records) { try { if (fs.existsSync(record.tempPath)) fs.unlinkSync(record.tempPath); } catch {} }
+        for (const record of records) { try { if (fs.existsSync(record.tempPath)) fs.unlinkSync(record.tempPath); } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/download-game-config.js:355', err); } }
     }
 }
 

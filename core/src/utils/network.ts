@@ -1,4 +1,5 @@
 export {};
+const { ignoreError } = require('./ignore-error');
 const { Buffer } = require('node:buffer');
 const { performance } = require('node:perf_hooks');
 const { EventEmitter } = require('node:events');
@@ -582,7 +583,7 @@ function handleNotify(msg: any): void {
                     reasonCode,
                     diagnostics,
                 });
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:585', err); }
             return;
         }
 
@@ -598,7 +599,7 @@ function handleNotify(msg: any): void {
                         networkEvents.emit('landsChanged', lands);
                     }
                 }
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:601', err); }
             return;
         }
 
@@ -610,7 +611,7 @@ function handleNotify(msg: any): void {
                 if (hostGid === userState.gid || hostGid === 0) {
                     networkEvents.emit('farmSocialEventsChanged', notify.social_events || []);
                 }
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:613', err); }
             return;
         }
 
@@ -622,7 +623,7 @@ function handleNotify(msg: any): void {
                     hostGid: toNum(notify.host_gid),
                     weather: notify.weather || null,
                 });
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:625', err); }
             return;
         }
 
@@ -631,7 +632,7 @@ function handleNotify(msg: any): void {
             try {
                 const notify = types.PendingGiftCountNotify.decode(eventBody);
                 networkEvents.emit('dogSkillGiftPending', Math.max(0, toNum(notify.count)));
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:634', err); }
             return;
         }
 
@@ -678,7 +679,7 @@ function handleNotify(msg: any): void {
                         }
                     }
                 }
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:681', err); }
             return;
         }
 
@@ -714,7 +715,7 @@ function handleNotify(msg: any): void {
                         recordOperation('levelUp', 1);
                     }
                 }
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:717', err); }
             return;
         }
 
@@ -726,7 +727,7 @@ function handleNotify(msg: any): void {
                 if (applications.length > 0) {
                     networkEvents.emit('friendApplicationReceived', applications);
                 }
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:729', err); }
             return;
         }
 
@@ -739,7 +740,7 @@ function handleNotify(msg: any): void {
                     const names = friends.map((f: any) => f.name || f.remark || `GID:${toNum(f.gid)}`).join(', ');
                     log('好友', `新好友: ${names}`);
                 }
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:742', err); }
             return;
         }
 
@@ -751,7 +752,7 @@ function handleNotify(msg: any): void {
                 if (goods.length > 0) {
                     networkEvents.emit('goodsUnlockNotify', goods);
                 }
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:754', err); }
             return;
         }
 
@@ -762,7 +763,7 @@ function handleNotify(msg: any): void {
                 if (notify.task_info) {
                     networkEvents.emit('taskInfoNotify', notify.task_info);
                 }
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:765', err); }
             return;
         }
 
@@ -771,7 +772,7 @@ function handleNotify(msg: any): void {
             try {
                 const notify = types.NeedNotify.decode(eventBody);
                 networkEvents.emit('mallNeedNotify', notify);
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:774', err); }
             return;
         }
 
@@ -780,7 +781,7 @@ function handleNotify(msg: any): void {
             try {
                 const notify = types.ProductsHasChangedNotify.decode(eventBody);
                 networkEvents.emit('productsChanged', notify);
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:783', err); }
             return;
         }
 
@@ -789,7 +790,7 @@ function handleNotify(msg: any): void {
             try {
                 const notify = types.ActiviesChangeNotify.decode(eventBody);
                 networkEvents.emit('activitiesChanged', notify);
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:792', err); }
             return;
         }
 
@@ -797,7 +798,7 @@ function handleNotify(msg: any): void {
         if (type.includes('AvatarFrameRedDotNotify')) {
             try {
                 networkEvents.emit('avatarFrameRedDot');
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:800', err); }
             return;
         }
 
@@ -805,7 +806,7 @@ function handleNotify(msg: any): void {
         if (type.includes('IllustratedRewardRedDotNotifyV2')) {
             try {
                 networkEvents.emit('illustratedRewardRedDot');
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:808', err); }
             return;
         }
 
@@ -814,7 +815,7 @@ function handleNotify(msg: any): void {
             try {
                 const notify = types.RechargeInfoNotify.decode(eventBody);
                 networkEvents.emit('rechargeInfoChanged', notify);
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:817', err); }
             return;
         }
 
@@ -823,7 +824,7 @@ function handleNotify(msg: any): void {
             try {
                 const notify = types.BulletinListChangedNTF.decode(eventBody);
                 networkEvents.emit('bulletinListChanged', notify);
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:826', err); }
             return;
         }
 
@@ -832,7 +833,7 @@ function handleNotify(msg: any): void {
             try {
                 const notify = types.SkinChangeNotify.decode(eventBody);
                 networkEvents.emit('skinChanged', notify);
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:835', err); }
             
         }
     } catch (e: any) {
@@ -967,7 +968,7 @@ async function sendLogin(context: ConnectionContext, onLoginSuccess?: () => void
                 source: 'login_init_failed',
                 reason: e.message,
             });
-            try { (context.socket as any).terminate(); } catch {}
+            try { (context.socket as any).terminate(); } catch (err) { ignoreError('core/src/utils/network.ts:970', err); }
         }
         },
     });
@@ -1011,7 +1012,7 @@ function startHeartbeat(context: ConnectionContext): void {
             try {
                 const reply = types.HeartbeatReply.decode(replyBody);
                 if (reply.server_time) syncServerTime(toNum(reply.server_time));
-            } catch {}
+            } catch (err) { ignoreError('core/src/utils/network.ts:1014', err); }
         } catch {
             if (!isCurrentConnection(context)) return;
             heartbeat.failures += 1;
@@ -1032,7 +1033,7 @@ function startHeartbeat(context: ConnectionContext): void {
                 source: 'heartbeat_timeout',
                 reason: `${Math.round(inboundSilenceMs / 1000)}s 无入站数据，连续 ${heartbeatMissCount} 次心跳失败`,
             });
-            try { (context.socket as any).terminate(); } catch {}
+            try { (context.socket as any).terminate(); } catch (err) { ignoreError('core/src/utils/network.ts:1035', err); }
         }
     }, { preventOverlap: true });
 }
@@ -1154,12 +1155,12 @@ function connect(code: string | null, onLoginSuccess?: () => void): void {
             if (!isCurrentConnection(context) || context.phase !== 'login') return;
             logWarn('登录', '登录响应超时，账号将停止运行...');
             finalizeConnection(context, { source: 'login_timeout', reason: '登录响应超时' });
-            try { (socket as any).terminate(); } catch {}
+            try { (socket as any).terminate(); } catch (err) { ignoreError('core/src/utils/network.ts:1157', err); }
         });
         sendLogin(context, onLoginSuccess).catch((e: any) => {
             if (!isCurrentConnection(context)) return;
             finalizeConnection(context, { source: 'login_send_failed', reason: e.message });
-            try { (socket as any).terminate(); } catch {}
+            try { (socket as any).terminate(); } catch (err) { ignoreError('core/src/utils/network.ts:1162', err); }
         });
     });
 
@@ -1198,7 +1199,7 @@ function cleanup(reason = '网络清理'): void {
     }
     context.intentionalClose = true;
     finalizeConnection(context, { source: 'intentional_close', reason });
-    try { context.socket.close(); } catch {}
+    try { context.socket.close(); } catch (err) { ignoreError('core/src/utils/network.ts:1201', err); }
 }
 
 function getWs(): WebSocket | null { return ws; }

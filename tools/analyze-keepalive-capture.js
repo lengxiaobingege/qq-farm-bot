@@ -49,7 +49,7 @@ function tokenShape(token) {
     if (validBase64) {
         try {
             decodedLength = Buffer.from(text, 'base64').length;
-        } catch {}
+        } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/analyze-keepalive-capture.js:52', err); }
     }
     return {
         length: text.length,

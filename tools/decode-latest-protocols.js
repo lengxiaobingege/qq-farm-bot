@@ -97,7 +97,7 @@ function rawFields(buffer, depth = 0) {
                 try {
                     const nested = rawFields(value, depth + 1);
                     if (nested.fields && nested.fields.length) entry.nested = nested.fields;
-                } catch {}
+                } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/decode-latest-protocols.js:100', err); }
                 fields.push(entry);
             } else if (wire === 5) {
                 fields.push({ field, wire, value: reader.fixed32() });
@@ -143,7 +143,7 @@ function wireShape(buffer) {
                 add(fieldPath, wire, display === null ? `bytes(${bytes.length})` : display.slice(0, 80));
                 try {
                     visit(bytes, fieldPath, depth + 1);
-                } catch {}
+                } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/decode-latest-protocols.js:146', err); }
             } else if (wire === 5) {
                 add(fieldPath, wire, reader.fixed32());
             } else {

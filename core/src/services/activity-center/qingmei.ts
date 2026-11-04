@@ -1,5 +1,6 @@
 export {};
 
+const { ignoreError } = require('../../utils/ignore-error');
 function createQingMeiActivityService(deps: any) {
     const {
         types,
@@ -140,7 +141,7 @@ function createQingMeiActivityService(deps: any) {
         let ingredients: any[] | null = null;
         try {
             ingredients = qingMeiIngredients(await getBag());
-        } catch {}
+        } catch (err) { ignoreError('core/src/services/activity-center/qingmei.ts:143', err); }
         return qingMeiDto(reply, ingredients);
     }
 

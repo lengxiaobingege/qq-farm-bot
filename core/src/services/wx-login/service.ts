@@ -1,3 +1,4 @@
+const { ignoreError } = require('../../utils/ignore-error');
 import crypto from 'node:crypto';
 import { getNativeWxLoginCode } from './native-protocol';
 
@@ -483,7 +484,7 @@ export class WxLoginService {
                     code = String(await getNativeWxLoginCode(nextBuffer, appId) || '').trim();
                     if (!code) throw new Error('empty wx login code');
                     return { loginBuffer: nextBuffer, credentials, refreshed: false, code };
-                } catch {}
+                } catch (err) { ignoreError('core/src/services/wx-login/service.ts:486', err); }
             }
             throw error;
         }
@@ -499,7 +500,7 @@ export class WxLoginService {
                 code = String(await getNativeWxLoginCode(nextBuffer, appId) || '').trim();
                 if (!code) throw new Error('empty wx login code');
                 return { loginBuffer: nextBuffer, credentials, refreshed: false, code };
-            } catch {}
+            } catch (err) { ignoreError('core/src/services/wx-login/service.ts:502', err); }
         }
         if (!code) throw new Error('empty wx login code');
         return { ...ensured, code };

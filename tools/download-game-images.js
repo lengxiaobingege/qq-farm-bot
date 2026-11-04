@@ -145,7 +145,7 @@ function readSettings(sourceDir) {
                 && assets.bundleVers && typeof assets.bundleVers === 'object') {
                 matches.push({ filePath, assets });
             }
-        } catch {}
+        } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/download-game-images.js:148', err); }
     }
     if (matches.length !== 1) {
         throw new Error(`有效 settings 文件数量应为 1，实际为 ${matches.length}: ${matches.map(x => x.filePath).join(', ')}`);
@@ -636,11 +636,11 @@ function installImage(outputDir, id, buffer) {
         }
         fs.renameSync(tempPath, finalPath);
         if (backedUp) {
-            try { fs.unlinkSync(backupPath); } catch {}
+            try { fs.unlinkSync(backupPath); } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/download-game-images.js:639', err); }
         }
         return { status, outputPath: finalPath, sha256: newHash };
     } catch (error) {
-        try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
+        try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/download-game-images.js:643', err); }
         try {
             if (backedUp && fs.existsSync(backupPath)) {
                 if (fs.existsSync(finalPath)) fs.unlinkSync(finalPath);
@@ -759,11 +759,11 @@ function writeReportAtomically(outputDir, report) {
         }
         fs.renameSync(tempPath, finalPath);
         if (backedUp) {
-            try { fs.unlinkSync(backupPath); } catch {}
+            try { fs.unlinkSync(backupPath); } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/download-game-images.js:762', err); }
         }
         return finalPath;
     } catch (error) {
-        try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
+        try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch (err) { if (process.env.DEBUG_IGNORED_ERRORS) console.warn('[ignored] tools/download-game-images.js:766', err); }
         try {
             if (backedUp && fs.existsSync(backupPath)) {
                 if (fs.existsSync(finalPath)) fs.unlinkSync(finalPath);

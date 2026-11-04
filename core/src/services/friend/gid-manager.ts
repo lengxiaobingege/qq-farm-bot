@@ -2,6 +2,7 @@
  * 已知好友 GID 管理 + QQ 好友列表获取
  */
 
+const { ignoreError } = require('../../utils/ignore-error');
 const { parentPort } = require('node:worker_threads');
 const { sendMsgAsync, GatewayError } = require('../../utils/network');
 const { types } = require('../../utils/proto');
@@ -36,7 +37,7 @@ export function postToMaster(payload: any): boolean {
             parentPort.postMessage(payload);
             return true;
         }
-    } catch {}
+    } catch (err) { ignoreError('core/src/services/friend/gid-manager.ts:39', err); }
     return false;
 }
 

@@ -1,5 +1,6 @@
 export {};
 
+const { ignoreError } = require('../utils/ignore-error');
 const { getItemById, getItemImageById } = require('../config/gameConfig');
 const { getServerTimeSec, toNum } = require('../utils/utils');
 const mallService = require('./mall');
@@ -185,7 +186,7 @@ async function purchaseMallProduct(goodsIdInput: unknown, countInput: unknown, s
 
         const reply = await mallService.purchaseMallGoods(goodsId, count);
         let catalog = null;
-        try { catalog = await getMallCatalog(slotType, 0); } catch {}
+        try { catalog = await getMallCatalog(slotType, 0); } catch (err) { ignoreError('core/src/services/commerce.ts:188', err); }
         return {
             purchase: {
                 goodsId: Math.max(0, toNum(reply?.goods_id)),
@@ -279,7 +280,7 @@ async function purchaseProps(goodsIdInput: unknown, countInput: unknown, expecte
             throw businessError('SHOP_RESULT_UNCONFIRMED', '购买回包与商品不一致，请刷新确认，勿重复购买');
         }
         let catalog = null;
-        try { catalog = await getPropsShop(); } catch {}
+        try { catalog = await getPropsShop(); } catch (err) { ignoreError('core/src/services/commerce.ts:282', err); }
         return { purchase: { goodsId, count, rewards }, catalog, refreshRequired: !catalog };
     });
 }

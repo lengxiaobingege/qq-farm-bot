@@ -4,6 +4,7 @@
 import type Long from 'long';
 export {};
 
+const { ignoreError } = require('./ignore-error');
 const LongModule = require('long');
 const { CONFIG } = require('../config/config');
 const { createModuleLogger, sanitizeMeta } = require('../services/logger');
@@ -183,7 +184,7 @@ function log(arg1: string, arg2: string | object | null, arg3: any = null): void
     const displayTag = resolveModuleTag(safeMeta.module);
     coreLogger.info(msg, { tag: displayTag, ...safeMeta });
     if (logHook) {
-        try { logHook(displayTag, msg, false, safeMeta); } catch {}
+        try { logHook(displayTag, msg, false, safeMeta); } catch (err) { ignoreError('core/src/utils/utils.ts:186', err); }
     }
 }
 
@@ -194,7 +195,7 @@ function logWarn(arg1: string, arg2: string | object | null, arg3: any = null): 
     const displayTag = resolveModuleTag(safeMeta.module);
     coreLogger.warn(msg, { tag: displayTag, ...safeMeta });
     if (logHook) {
-        try { logHook(displayTag, msg, true, safeMeta); } catch {}
+        try { logHook(displayTag, msg, true, safeMeta); } catch (err) { ignoreError('core/src/utils/utils.ts:197', err); }
     }
 }
 

@@ -5,6 +5,7 @@ export {};
  * 仓库系统 - 自动出售果实
  * 协议说明：BagReply 使用 item_bag（ItemBag），item_bag.items 才是背包物品列表
  */
+const { ignoreError } = require('../utils/ignore-error');
 const { getFruitName, getPlantByFruitId, getPlantBySeedId, getItemById, getItemImageById, getSeedImageBySeedId, getEffectiveSellInfo, getMutantEffectsByIds } = require('../config/gameConfig');
 const { isAutomationOn } = require('../models/store');
 const { sendMsgAsync, networkEvents, getUserState } = require('../utils/network');
@@ -749,7 +750,7 @@ async function sellAllFruits(): Promise<void> {
                 const bagAfter: any = await getBag();
                 const bagGold: number = getGoldFromItems(getBagItems(bagAfter));
                 if (bagGold > goldBefore) bagDelta = bagGold - goldBefore;
-            } catch {}
+            } catch (err) { ignoreError('core/src/services/warehouse.ts:752', err); }
         }
 
         const totalGoldEarned: number = Math.max(serverGoldTotal, totalGoldDelta, bagDelta);

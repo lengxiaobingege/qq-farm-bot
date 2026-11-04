@@ -1,3 +1,4 @@
+const { ignoreError } = require('../../utils/ignore-error');
 import crypto from 'node:crypto';
 import net from 'node:net';
 
@@ -62,7 +63,7 @@ function parseManual(body: Buffer, temp: any) {
     try {
         const offset = readWpkg(body);
         if (offset < body.length && body[offset] === 0x0A) hybridResponse = body.subarray(offset);
-    } catch {}
+    } catch (err) { ignoreError('core/src/services/wx-login/native-protocol.ts:65', err); }
     if (!hybridResponse) {
         const marker = Buffer.from([0x08, 0x9F, 0x03, 0x12, 0x41, 0x04]);
         const offset = body.indexOf(marker);
@@ -174,7 +175,7 @@ export async function getNativeWxLoginCode(loginBuffer: string, appId: string): 
                 try {
                     const decrypted = gcm(hk.key, hk.iv, seq, 0x17, appData, true);
                     const candidates: Buffer[] = [decrypted];
-                    try { candidates.unshift(parseShort(decrypted).body); } catch {}
+                    try { candidates.unshift(parseShort(decrypted).body); } catch (err) { ignoreError('core/src/services/wx-login/native-protocol.ts:177', err); }
                     for (const candidate of candidates) {
                         for (let offset = 0; offset < Math.min(220, candidate.length); offset++) {
                             try {
@@ -182,10 +183,10 @@ export async function getNativeWxLoginCode(loginBuffer: string, appId: string): 
                                 const outer = pbf(plain); const inner = pbf(requiredField(outer, 2, 'wx.login response field 2'));
                                 const code = inner.get(3);
                                 if (Buffer.isBuffer(code) && code.length) return code.toString();
-                            } catch {}
+                            } catch (err) { ignoreError('core/src/services/wx-login/native-protocol.ts:185', err); }
                         }
                     }
-                } catch {}
+                } catch (err) { ignoreError('core/src/services/wx-login/native-protocol.ts:188', err); }
             }
         }
         throw new Error('ShortLink AppData decrypt/parse failed');

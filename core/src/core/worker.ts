@@ -2,6 +2,7 @@ export {};
 /**
  * 子进程 Worker - 负责运行单个账号的挂机逻辑
  */
+const { ignoreError } = require('../utils/ignore-error');
 const { parentPort, workerData } = require('node:worker_threads');
 
 const { CONFIG, updateRuntimeConfig } = require('../config/config');
@@ -78,7 +79,7 @@ function exitWorker(code: number = 0): void {
     if (parentPort) {
         try {
             parentPort.close();
-        } catch {}
+        } catch (err) { ignoreError('core/src/core/worker.ts:81', err); }
         return;
     }
     process.exit(code);
@@ -832,7 +833,7 @@ function quiesceBot(reason: string): void {
     cleanupTaskSystem();
     workerScheduler.clearAll();
     detachRuntimeListeners();
-    try { require('../services/friend').clearFriendsListCache(); } catch {}
+    try { require('../services/friend').clearFriendsListCache(); } catch (err) { ignoreError('core/src/core/worker.ts:835', err); }
     cleanup(reason);
     syncStatus(true);
 }
