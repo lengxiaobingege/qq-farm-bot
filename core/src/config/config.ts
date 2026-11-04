@@ -197,7 +197,7 @@ const DEFAULT_SYSTEM_CONFIG: SystemConfig = {
     clientVersionUpdatedAt: DEFAULT_CLIENT_VERSION_UPDATED_AT,
     wxClientVersion: DEFAULT_WX_CLIENT_VERSION,
     wxClientVersionUpdatedAt: DEFAULT_WX_CLIENT_VERSION_UPDATED_AT,
-    platform: 'qq',
+    platform: 'wx',
     os: DEFAULT_DEVICE_INFO.os,
     timeZone: DEFAULT_TIME_ZONE,
     deviceInfo: { ...DEFAULT_DEVICE_INFO },
@@ -209,7 +209,10 @@ const CONFIG: RuntimeConfig = {
     clientVersionUpdatedAt: DEFAULT_CLIENT_VERSION_UPDATED_AT,
     wxClientVersion: DEFAULT_WX_CLIENT_VERSION,
     wxClientVersionUpdatedAt: DEFAULT_WX_CLIENT_VERSION_UPDATED_AT,
-    platform: DEFAULT_SYSTEM_CONFIG.platform,
+    // 协议层双端基准保持 qq：登录/心跳报文的 channel 等字段由官方抓包快照锁定，
+    // 且该值会在微信 worker 启动时被强制覆盖为 wx（见 core/worker.ts）。
+    // DEFAULT_SYSTEM_CONFIG.platform 是面向用户的默认系统配置，二者职责不同，故不联动。
+    platform: 'qq',
     os: DEFAULT_SYSTEM_CONFIG.os,
     timeZone: DEFAULT_SYSTEM_CONFIG.timeZone,
     deviceInfo: { ...DEFAULT_DEVICE_INFO },
@@ -220,7 +223,7 @@ const CONFIG: RuntimeConfig = {
     farmCheckIntervalMax: 5000,
     friendCheckIntervalMin: 12000,
     friendCheckIntervalMax: 15000,
-    adminPort: Number(process.env.ADMIN_PORT || process.env.PORT),
+    adminPort: Number(process.env.ADMIN_PORT || process.env.PORT || 3007),
     adminPassword: process.env.ADMIN_PASSWORD,
 };
 

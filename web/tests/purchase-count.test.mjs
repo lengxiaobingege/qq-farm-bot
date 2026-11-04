@@ -72,16 +72,28 @@ test('purchaseMaxCount caps by limit remaining, balance and hard cap', () => {
       { id: 1042, count: 3, balance: 20 },
     ],
   }), 6)
-  // 余额不足一份时下限为 1（提交时有余额校验兜底）
+  // 余额不足一份时返回 0，调用方据此禁用购买（不再错误显示「还可购买 1 份」）
   assert.equal(purchaseMaxCount({
     limitRemaining: 10,
     costs: [{ id: 1041, count: 100, balance: 5 }],
-  }), 1)
+  }), 0)
   // 自定义硬上限
   assert.equal(purchaseMaxCount({ limitRemaining: 50, costs: [], cap: 20 }), 20)
-  // 限购剩余为 0（售罄兜底）也不低于 1
+  // 限购剩余为 0（售罄）返回 0
   assert.equal(purchaseMaxCount({
     limitRemaining: 0,
     costs: [{ id: 1041, count: 1, balance: 100 }],
-  }), 1)
+  }), 0)
+})
+
+test('purchaseMaxCount returns 0 for every sold-out / broke combination', () => {
+  // 售罄且余额为 0
+  assert.equal(purchaseMaxCount({ limitRemaining: 0, costs: [{ id: 1041, count: 10, balance: 0 }] }), 0)
+  // 余额为 0 但无限购
+  assert.equal(purchaseMaxCount({ limitRemaining: null, costs: [{ id: 1041, count: 10, balance: 0 }] }), 0)
+  // 限购剩余为负（脏数据）不应变成负数
+  assert.equal(purchaseMaxCount({ limitRemaining: -3, costs: [] }), 0)
+  // 正常可购场景不受影响
+  assert.equal(purchaseMaxCount({ limitRemaining: 5, costs: [{ id: 1041, count: 10, balance: 100 }] }), 5)
+  assert.equal(purchaseMaxCount({ limitRemaining: null, costs: [] }), 9999)
 })

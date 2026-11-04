@@ -562,7 +562,7 @@ function loadGlobalConfig(): void {
                     clientVersionUpdatedAt: deviceClientVersionUpdatedAt,
                     wxClientVersion: wxVersion.clientVersion,
                     wxClientVersionUpdatedAt: wxVersion.clientVersionUpdatedAt,
-                    platform: String(data.systemConfig.platform || 'qq').trim(),
+                    platform: String(data.systemConfig.platform || 'wx').trim(),
                     os: deviceOs,
                     timeZone: normalizeTimeZone(data.systemConfig.timeZone || DEFAULT_TIME_ZONE),
                     deviceInfo: {

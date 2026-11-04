@@ -621,7 +621,7 @@ async function handleLogout() {
             <div class="flex items-center gap-2">
               <span>Web v{{ version }}</span>
               <a
-                href="https://github.com/liyangpengs/qq-farm-bot"
+                href="https://github.com/lengxiaobingege/qq-farm-bot"
                 target="_blank"
                 rel="noopener noreferrer"
                 title="开源地址"
@@ -665,7 +665,7 @@ async function handleLogout() {
           <template #trigger>
             <a
               class="sidebar-footer__icon"
-              href="https://github.com/liyangpengs/qq-farm-bot"
+              href="https://github.com/lengxiaobingege/qq-farm-bot"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="查看项目版本与开源地址"

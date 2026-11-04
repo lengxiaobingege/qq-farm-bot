@@ -26,7 +26,9 @@ export function affordableCount(costs: PurchaseCost[]): number {
 export function purchaseMaxCount(options: { limitRemaining?: number | null, costs?: PurchaseCost[], cap?: number }): number {
   const cap = options.cap ?? 9999
   const limit = options.limitRemaining
-  return Math.max(1, Math.min(
+  // 售罄（limit=0）或余额不足时必须返回 0，让调用方禁用购买；
+  // 钳到 1 会在 UI 上错误地显示「还可购买 1 份」。
+  return Math.max(0, Math.min(
     cap,
     limit != null && Number.isFinite(Number(limit)) ? Math.max(0, Number(limit)) : cap,
     affordableCount(options.costs || []),

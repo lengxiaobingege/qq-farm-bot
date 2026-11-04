@@ -63,18 +63,18 @@ function validateAdmin(username: string, password: string, ip: string = 'unknown
     security.loadLoginAttempts();
     const rateLimit = security.checkRateLimit(ip);
     if (!rateLimit.allowed) return { error: 'rate_limit', ...rateLimit };
-    const lockout = security.checkAdminLockout();
+    const lockout = security.checkAdminLockout(ip);
     if (lockout.locked) return { error: 'locked', ...lockout };
 
     const current = loadAdmin();
     if (username !== current.username || !security.verifyPassword(password, current.password)) {
-        const attempt = security.recordFailedAttempt();
+        const attempt = security.recordFailedAttempt(ip);
         return attempt.locked
             ? { error: 'locked', message: attempt.message }
             : { error: 'invalid_credentials', message: `用户名或密码错误，剩余尝试次数: ${attempt.remainingAttempts}` };
     }
 
-    security.clearFailedAttempts();
+    security.clearFailedAttempts(ip);
     if (security.needsRehash(current.password)) {
         current.password = security.hashPassword(password);
         saveAdmin();

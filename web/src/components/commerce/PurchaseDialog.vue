@@ -22,6 +22,7 @@ const maxCount = computed(() => purchaseMaxCount({
   limitRemaining: props.goods?.limit?.remaining ?? null,
   costs: props.goods?.isFree ? [] : [{ id: props.goods?.price?.id, count: props.goods?.price?.count, balance: props.goods?.price?.balance }],
 }))
+const limitReached = computed(() => maxCount.value <= 0)
 const totalCost = computed(() => (props.goods?.price.count || 0) * count.value)
 const balanceUnknown = computed(() => !props.goods?.isFree && props.goods?.price.balance == null)
 const insufficient = computed(() => {
@@ -29,9 +30,13 @@ const insufficient = computed(() => {
   return !props.goods?.isFree && balance !== null && balance !== undefined && totalCost.value > balance
 })
 
-watch(() => [props.open, props.goods?.id], () => count.value = 1)
+watch(() => [props.open, props.goods?.id], () => count.value = limitReached.value ? 0 : 1)
 
 function setCount(value: number) {
+  if (limitReached.value) {
+    count.value = 0
+    return
+  }
   count.value = Math.min(maxCount.value, Math.max(1, Math.floor(value) || 1))
 }
 </script>
@@ -77,14 +82,17 @@ function setCount(value: number) {
         <div class="purchase-row">
           <div>
             <span class="purchase-row__label">购买数量</span>
-            <small v-if="goods.limit">{{ limitLabel || '限购' }} · 还可购买 {{ maxCount }} 份</small>
+            <small v-if="goods.limit">
+              <template v-if="limitReached">{{ limitLabel || '限购' }} · 已达购买上限</template>
+              <template v-else>{{ limitLabel || '限购' }} · 还可购买 {{ maxCount }} 份</template>
+            </small>
           </div>
           <div class="stepper">
-            <button type="button" title="减少" aria-label="减少" :disabled="pending || count <= 1" @click="setCount(count - 1)">
+            <button type="button" title="减少" aria-label="减少" :disabled="pending || limitReached || count <= 1" @click="setCount(count - 1)">
               <span class="i-carbon-subtract" />
             </button>
-            <input :value="count" inputmode="numeric" aria-label="购买数量" :disabled="pending" @input="setCount(Number(($event.target as HTMLInputElement).value))">
-            <button type="button" title="增加" aria-label="增加" :disabled="pending || count >= maxCount" @click="setCount(count + 1)">
+            <input :value="count" inputmode="numeric" aria-label="购买数量" :disabled="pending || limitReached" @input="setCount(Number(($event.target as HTMLInputElement).value))">
+            <button type="button" title="增加" aria-label="增加" :disabled="pending || limitReached || count >= maxCount" @click="setCount(count + 1)">
               <span class="i-carbon-add" />
             </button>
           </div>
@@ -114,7 +122,7 @@ function setCount(value: number) {
         <NButton :disabled="pending" @click="emit('close')">
           取消
         </NButton>
-        <NButton type="primary" :loading="pending" :disabled="pending || insufficient || balanceUnknown || !goods.purchasable" @click="emit('confirm', count)">
+        <NButton type="primary" :loading="pending" :disabled="pending || limitReached || insufficient || balanceUnknown || !goods.purchasable" @click="emit('confirm', count)">
           {{ pending ? '购买中' : goods.isFree ? '确认领取' : '确认购买' }}
         </NButton>
       </footer>

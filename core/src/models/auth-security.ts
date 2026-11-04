@@ -4,7 +4,12 @@ const crypto = require('node:crypto');
 const { getDataFile, ensureDataDir } = require('../config/runtime-paths');
 
 const LOGIN_ATTEMPTS_FILE: string = getDataFile('login-attempts.json');
-const ADMIN_ATTEMPT_KEY = 'admin';
+// 失败锁定按客户端 IP 分桶：单个来源的失败不会把管理员账号整体锁死（防 DoS），
+// 同时因为客户端 IP 已不可伪造，攻击者也无法靠换 IP 绕过每个桶的计数。
+const ADMIN_ATTEMPT_PREFIX = 'admin:';
+function adminAttemptKey(ip: string): string {
+    return `${ADMIN_ATTEMPT_PREFIX}${String(ip || 'unknown').trim() || 'unknown'}`;
+}
 
 const SALT_LENGTH = 32;
 const ITERATIONS = 100000;
@@ -41,13 +46,9 @@ function loadLoginAttempts(): void {
         const source = raw && typeof raw === 'object' ? raw : {};
         loginAttempts = {};
         for (const [key, value] of Object.entries(source)) {
-            if ((key === ADMIN_ATTEMPT_KEY || key.startsWith('ip:')) && value && typeof value === 'object') {
+            if ((key.startsWith('admin:') || key.startsWith('ip:')) && value && typeof value === 'object') {
                 loginAttempts[key] = value as LoginAttempt;
             }
-        }
-        const legacyAdmin = source['user:admin'];
-        if (!loginAttempts[ADMIN_ATTEMPT_KEY] && legacyAdmin && typeof legacyAdmin === 'object') {
-            loginAttempts[ADMIN_ATTEMPT_KEY] = legacyAdmin as LoginAttempt;
         }
     } catch {
         loginAttempts = {};
@@ -68,8 +69,10 @@ function cleanExpiredAttempts(): void {
     let changed = false;
     for (const key of Object.keys(loginAttempts)) {
         const attempt = loginAttempts[key];
-        if ((attempt.lockedUntil && attempt.lockedUntil < now)
-            || (attempt.windowStart && now - attempt.windowStart > RATE_LIMIT_WINDOW)) {
+        const lockExpired = !!attempt.lockedUntil && attempt.lockedUntil < now;
+        const windowExpired = !attempt.lockedUntil && !!attempt.windowStart
+            && now - attempt.windowStart > RATE_LIMIT_WINDOW;
+        if (lockExpired || windowExpired) {
             delete loginAttempts[key];
             changed = true;
         }
@@ -96,9 +99,9 @@ function checkRateLimit(ip: string): { allowed: boolean; remainingMs?: number; m
     return { allowed: true };
 }
 
-function checkAdminLockout(): { locked: boolean; remainingMs?: number; message?: string } {
+function checkAdminLockout(ip: string): { locked: boolean; remainingMs?: number; message?: string } {
     cleanExpiredAttempts();
-    const attempt = loginAttempts[ADMIN_ATTEMPT_KEY];
+    const attempt = loginAttempts[adminAttemptKey(ip)];
     const now = Date.now();
     if (attempt?.lockedUntil && attempt.lockedUntil > now) {
         const remainingMs = attempt.lockedUntil - now;
@@ -107,12 +110,13 @@ function checkAdminLockout(): { locked: boolean; remainingMs?: number; message?:
     return { locked: false };
 }
 
-function recordFailedAttempt(): { locked: boolean; message?: string; remainingAttempts?: number } {
+function recordFailedAttempt(ip: string): { locked: boolean; message?: string; remainingAttempts?: number } {
     const now = Date.now();
-    const attempt = loginAttempts[ADMIN_ATTEMPT_KEY] || { count: 0, firstAttempt: now };
+    const key = adminAttemptKey(ip);
+    const attempt = loginAttempts[key] || { count: 0, firstAttempt: now, windowStart: now };
     attempt.count++;
     attempt.lastAttempt = now;
-    loginAttempts[ADMIN_ATTEMPT_KEY] = attempt;
+    loginAttempts[key] = attempt;
     if (attempt.count >= MAX_LOGIN_ATTEMPTS) {
         attempt.lockedUntil = now + LOCKOUT_DURATION;
         saveLoginAttempts();
@@ -122,9 +126,10 @@ function recordFailedAttempt(): { locked: boolean; message?: string; remainingAt
     return { locked: false, remainingAttempts: MAX_LOGIN_ATTEMPTS - attempt.count };
 }
 
-function clearFailedAttempts(): void {
-    if (loginAttempts[ADMIN_ATTEMPT_KEY]) {
-        delete loginAttempts[ADMIN_ATTEMPT_KEY];
+function clearFailedAttempts(ip: string): void {
+    const key = adminAttemptKey(ip);
+    if (loginAttempts[key]) {
+        delete loginAttempts[key];
         saveLoginAttempts();
     }
 }

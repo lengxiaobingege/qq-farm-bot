@@ -10,18 +10,57 @@ interface AuthenticatedRequest extends Request {
     adminToken?: string;
 }
 
+/**
+ * 仅当 TCP 对端是可信代理时，才采信客户端提供的来源请求头。
+ * 默认信任非回环的 RFC1918 私网地址（CLB / 反向代理的真实内网 IP）；
+ * 回环直连与公网直连一律不采信客户端头，避免伪造 XFF 绕过登录限流。
+ * 可通过 TRUSTED_PROXY_IPS（逗号分隔）覆盖为显式的代理 IP 白名单。
+ */
+const TRUSTED_PROXY_IPS: string[] = String(process.env.TRUSTED_PROXY_IPS || '')
+    .split(',').map(item => item.trim()).filter(Boolean);
+
+function normalizeIp(value: unknown): string {
+    return String(value == null ? '' : value).trim().replace(/^::ffff:/, '').toLowerCase();
+}
+
+function isLoopback(ip: string): boolean {
+    return ip === '::1' || ip === 'localhost' || ip.startsWith('127.');
+}
+
+function isProxyAddress(ip: string): boolean {
+    if (!ip || isLoopback(ip)) return false; // 回环直连不算代理
+    if (ip.startsWith('10.') || ip.startsWith('192.168.')) return true;
+    const match = /^172\.(\d+)\./.exec(ip);
+    if (match && Number(match[1]) >= 16 && Number(match[1]) <= 31) return true;
+    if (ip.startsWith('fc') || ip.startsWith('fd')) return true; // IPv6 ULA
+    return false;
+}
+
+function isTrustedProxy(ip: string): boolean {
+    if (!ip) return false;
+    if (TRUSTED_PROXY_IPS.length) return TRUSTED_PROXY_IPS.includes(ip);
+    return isProxyAddress(ip);
+}
+
 function getClientIp(req: Request): string {
-    const cfIp = req.headers['cf-connecting-ip'];
-    if (cfIp) return String(cfIp).trim();
-    const realIp = req.headers['x-real-ip'];
-    if (realIp) return String(realIp).trim();
+    const socketIp = normalizeIp(req.socket?.remoteAddress);
+    if (!isTrustedProxy(socketIp)) return socketIp || 'unknown';
+
     const forwarded = req.headers['x-forwarded-for'];
     if (forwarded) {
-        const first = String(forwarded).split(',').map(item => item.trim()).find(Boolean);
-        if (first) return first;
+        const chain = String(forwarded).split(',').map(normalizeIp).filter(Boolean);
+        // 从右往左取第一个非可信代理地址：最靠近代理的一跳才是真实客户端，
+        // 客户端伪造的值位于链的左侧，不会被采信。
+        for (let i = chain.length - 1; i >= 0; i -= 1) {
+            if (!isTrustedProxy(chain[i])) return chain[i];
+        }
+        if (chain.length) return chain[chain.length - 1];
     }
-    const address = req.ip || (req as any).connection?.remoteAddress || req.socket?.remoteAddress;
-    return String(address || 'unknown').replace(/^::ffff:/, '');
+    const realIp = normalizeIp(req.headers['x-real-ip']);
+    if (realIp && !isTrustedProxy(realIp)) return realIp;
+    const cfIp = normalizeIp(req.headers['cf-connecting-ip']);
+    if (cfIp && !isTrustedProxy(cfIp)) return cfIp;
+    return socketIp || 'unknown';
 }
 
 const issueToken = (): string => crypto.randomBytes(24).toString('hex');
