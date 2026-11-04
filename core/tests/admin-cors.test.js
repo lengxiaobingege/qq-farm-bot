@@ -55,21 +55,20 @@ test('白名单来源回显 ACAO 与 credentials，并设置 Vary: Origin', () =
     assert.equal(res.headers['Vary'], 'Origin');
 });
 
-test('非白名单跨域来源返回 403，且不回显 ACAO / credentials', () => {
+test('非白名单跨域来源不回显 ACAO / credentials，请求由浏览器侧拦截', () => {
     const res = mockRes();
     const ok = applyCors(mockReq({ origin: 'https://evil.example.com' }), res);
-    assert.equal(ok, false);
-    assert.equal(res.statusCode, 403);
-    assert.equal(res.body.error, 'Origin not allowed');
+    assert.equal(ok, true);
     assert.equal(res.headers['Access-Control-Allow-Origin'], undefined);
     assert.equal(res.headers['Access-Control-Allow-Credentials'], undefined);
 });
 
-test('非白名单的 OPTIONS 预检同样被拒绝', () => {
+test('非白名单的 OPTIONS 预检返回 204 但不回显 ACAO，浏览器预检自然失败', () => {
     const res = mockRes();
     const ok = applyCors(mockReq({ origin: 'https://evil.example.com', method: 'OPTIONS' }), res);
     assert.equal(ok, false);
-    assert.equal(res.statusCode, 403);
+    assert.equal(res.statusCode, 204);
+    assert.equal(res.headers['Access-Control-Allow-Origin'], undefined);
 });
 
 test('无 Origin 请求不再返回通配符来源，且可继续处理', () => {

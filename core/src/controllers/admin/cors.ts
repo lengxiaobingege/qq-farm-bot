@@ -58,7 +58,12 @@ function isOriginAllowed(origin?: string, hostHeader?: string): boolean {
 
 /**
  * 写入 CORS 响应头。
- * @returns true 表示请求可继续；false 表示已自行结束响应（预检或拒绝）。
+ *
+ * 注意：对未允许的来源不做服务端 403 —— 发布平台等反向代理会改写 Host，
+ * 依赖 Origin/Host 匹配做硬拒绝会误伤正常访问。正确做法是不回显 ACAO，
+ * 由浏览器拒绝跨域 JS 读取响应（对非浏览器客户端 CORS 本就不设防）。
+ *
+ * @returns true 表示请求可继续；false 表示已自行结束响应（预检）。
  */
 function applyCors(req: any, res: any): boolean {
     const origin: string | undefined = req.headers && req.headers.origin;
@@ -77,12 +82,8 @@ function applyCors(req: any, res: any): boolean {
     res.header('Access-Control-Allow-Headers', 'Content-Type, x-account-id, x-admin-token, x-proxy-api-key, x-proxy-api-url, x-proxy-app-id');
     res.header('Access-Control-Max-Age', '86400');
 
-    if (origin && !allowed) {
-        res.status(403).json({ ok: false, error: 'Origin not allowed' });
-        return false;
-    }
     if (req.method === 'OPTIONS') {
-        // 同源/非浏览器预检：放行，但不再返回通配符来源
+        // 预检：未允许的来源不回显 ACAO，浏览器预检会自然失败
         res.sendStatus(204);
         return false;
     }

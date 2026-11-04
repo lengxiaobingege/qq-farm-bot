@@ -10,7 +10,7 @@ const SocketIOServer = Server;
 const {
     resolveAccId,
 } = require('./middleware');
-const { getAllowedOrigins, isOriginAllowed } = require('./cors');
+const { getAllowedOrigins } = require('./cors');
 
 function applySocketSubscription(ctx: AdminContext, socket: any, accountRef: string = ''): void {
     const incoming = String(accountRef || '').trim();
@@ -60,17 +60,12 @@ function setupSocketIO(ctx: AdminContext): void {
     ctx.io = new SocketIOServer(ctx.server as any, {
         path: '/socket.io',
         cors: {
+            // 仅白名单来源会收到 ACAO 回显；跨域握手由浏览器侧拒绝，
+            // 且连接本身仍需 token（见下方中间件），双重兜底。
             origin: getAllowedOrigins(),
             methods: ['GET', 'POST'],
             allowedHeaders: ['x-admin-token', 'x-account-id'],
             credentials: true,
-        },
-        // 同源握手自动放行；非白名单来源直接拒绝，避免任意站点建立实时连接
-        allowRequest: (req: any, callback: (err: string | null, allowed: boolean) => void) => {
-            const origin: string | undefined = req.headers && req.headers.origin;
-            const host: string | undefined = req.headers && req.headers.host;
-            if (isOriginAllowed(origin, host)) return callback(null, true);
-            return callback('Origin not allowed', false);
         },
     });
 
