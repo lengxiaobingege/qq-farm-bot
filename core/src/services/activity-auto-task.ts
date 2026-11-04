@@ -7,14 +7,7 @@ const { sendMsgAsync } = require('../utils/network');
 const { types } = require('../utils/proto');
 const { getServerTimeSec, toNum, log, sleep } = require('../utils/utils');
 const { isAutomationOn } = require('../models/store');
-const { getAutumnActivity, operateAutumnActivity } = require('./autumn-activities');
-const { getShareRewardActivity, operateShareRewardActivity } = require('./share-reward-activity');
 const { getMilkTeaActivity, operateMilkTeaActivity } = require('./milk-tea');
-
-const EVENT_IDS = {
-    wish: '2026092401',
-    happy: '2026092501',
-};
 
 const MILK_GROUP_ID = '2026110100';
 
@@ -35,60 +28,6 @@ function logActivityError(key: string, label: string, e: any): string {
         module: 'activity_task', event: key, result: 'error',
     });
     return `${label}失败: ${message}`;
-}
-
-async function autoWish(): Promise<{ claimed: number; message: string }> {
-    if (!isAutomationOn('activity_task')) return { claimed: 0, message: '自动化未开启' };
-    try {
-        const state: any = await getAutumnActivity('wish');
-        if (!state || !state.active) return { claimed: 0, message: '秋祈活动未开放' };
-
-        let claimed = 0;
-        if (state.canClaim) {
-            await operateAutumnActivity('wish', 'claim');
-            claimed += 1;
-            log('活动任务', '秋祈领取今日签文奖励', { module: 'activity_task', event: 'claim_wish', result: 'ok' });
-            await sleep(500);
-        }
-        if (state.canDraw) {
-            await operateAutumnActivity('wish', 'draw', { chooseId: 1 });
-            claimed += 1;
-            log('活动任务', '秋祈执行今日祈愿', { module: 'activity_task', event: 'draw_wish', result: 'ok' });
-        }
-        return { claimed, message: claimed > 0 ? `秋祈完成 ${claimed} 项` : '秋祈无可执行任务' };
-    } catch (e: any) {
-        return { claimed: 0, message: logActivityError('wish', '秋祈', e) };
-    }
-}
-
-async function autoHappy(): Promise<{ claimed: number; message: string }> {
-    if (!isAutomationOn('activity_task')) return { claimed: 0, message: '自动化未开启' };
-    try {
-        const state: any = await getShareRewardActivity(EVENT_IDS.happy);
-        if (!state || !state.active) return { claimed: 0, message: '快乐包活动未开放' };
-
-        let claimed = 0;
-        if (state.canClaimDaily) {
-            await operateShareRewardActivity(EVENT_IDS.happy, 'daily');
-            claimed += 1;
-            log('活动任务', '快乐包领取每日快乐值', { module: 'activity_task', event: 'claim_happy_daily', result: 'ok' });
-            await sleep(500);
-        }
-        if (state.canShare) {
-            await operateShareRewardActivity(EVENT_IDS.happy, 'share');
-            claimed += 1;
-            log('活动任务', '快乐包执行每日首次分享', { module: 'activity_task', event: 'share_happy', result: 'ok' });
-            await sleep(500);
-        }
-        if (state.canClaimMilestones) {
-            await operateShareRewardActivity(EVENT_IDS.happy, 'milestones');
-            claimed += 1;
-            log('活动任务', '快乐包领取可用档位奖励', { module: 'activity_task', event: 'claim_happy_milestones', result: 'ok' });
-        }
-        return { claimed, message: claimed > 0 ? `快乐包完成 ${claimed} 项` : '快乐包无可执行任务' };
-    } catch (e: any) {
-        return { claimed: 0, message: logActivityError('happy', '快乐包', e) };
-    }
 }
 
 async function autoMilkTea(): Promise<{ claimed: number; message: string }> {
@@ -251,12 +190,6 @@ async function checkAndClaimActivityTasks(): Promise<void> {
     if (!isAutomationOn('activity_task')) return;
 
     const results: string[] = [];
-    const wishResult = await autoWish();
-    if (wishResult.message) results.push(wishResult.message);
-
-    const happyResult = await autoHappy();
-    if (happyResult.message) results.push(happyResult.message);
-
     const milkResult = await autoMilkTea();
     if (milkResult.message) results.push(milkResult.message);
 
@@ -270,8 +203,6 @@ async function checkAndClaimActivityTasks(): Promise<void> {
 
 module.exports = {
     checkAndClaimActivityTasks,
-    autoWish,
-    autoHappy,
     autoMilkTea,
     autoPumpkin,
 };
