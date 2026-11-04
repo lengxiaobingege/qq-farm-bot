@@ -133,14 +133,16 @@ function handleAccountAvatarError(account: any) {
 // 微信账号没有 QQ 号(uin)，用 openId 尾号标识；hasLoginBuffer 表示已保存微信登录态
 function getAccountIdentity(account: any) {
   const uin = String(account?.uin || '').trim()
+  const id = String(account?.id || '').trim()
+  const idPrefix = id ? `ID ${id} · ` : ''
   if (uin)
-    return uin
+    return `${idPrefix}${uin}`
   const openId = String(account?.wxOpenId || '').trim()
   if (openId)
-    return `微信 …${openId.slice(-6)}`
+    return `${idPrefix}微信 …${openId.slice(-6)}`
   if (account?.platform === 'wx')
-    return account?.hasLoginBuffer ? '微信登录' : '微信登录（未保存登录态）'
-  return '未绑定'
+    return `${idPrefix}微信登录${account?.hasLoginBuffer ? '' : '（未保存登录态）'}`
+  return `${idPrefix}未绑定`
 }
 
 const stoppedAccounts = computed(() => accounts.value.filter((acc: any) => !acc.running))
