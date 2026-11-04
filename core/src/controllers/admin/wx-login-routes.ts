@@ -11,7 +11,7 @@ const { createAuthRequired } = require('./middleware');
 const TARGET_APP_ID = 'wx5306c5978fdb76e4';
 const TASK_TTL_MS = 110_000;
 type Status = ScanStatus | 'ready_for_code' | 'failed';
-interface Task { id: string; createdAt: number; status: Status; session: WxLoginSession; qr: Buffer; code?: string; pending?: Promise<void>; }
+interface Task { id: string; createdAt: number; status: Status; session: WxLoginSession; qr: Buffer; code?: string; loginBuffer?: string; credentials?: any; pending?: Promise<void>; }
 const tasks = new Map<string, Task>();
 const wxLogin = new WxLoginService();
 
@@ -31,7 +31,12 @@ async function createTask(): Promise<Task> {
 async function poll(task: Task): Promise<void> { if (task.status === 'authorized' || task.status === 'ready_for_code') return; task.status = await wxLogin.poll(task.session); }
 async function confirm(task: Task): Promise<void> {
     if (task.status !== 'authorized') throw new Error('Waiting for scan authorization');
-    await wxLogin.confirm(task.session);
+    // confirm 会产出 loginBuffer 与 cookies 凭据（accessToken/refreshToken 等），
+    // 必须保存在任务上供 /code 一起返回，否则扫码会话会随任务销毁而丢失，
+    // 账号掉线后将无法自动重新登录
+    const confirmed = await wxLogin.confirm(task.session);
+    task.loginBuffer = confirmed.loginBuffer;
+    task.credentials = confirmed.credentials;
     task.status = 'ready_for_code';
 }
 async function consumeCode(task: Task): Promise<void> { if (task.status !== 'ready_for_code') throw new Error('Login code is not ready'); task.code = await wxLogin.issueCode(task.session, TARGET_APP_ID); }
@@ -49,6 +54,6 @@ function mountWxLoginRoutes(app: Application, ctx: AdminContext): void {
     });
     app.get('/api/wx-login/tasks/:taskId/status', async (req, res) => { const task = findTask(req, res); if (!task) return; try { if (!task.pending) task.pending = poll(task).finally(() => { task.pending = undefined; }); await task.pending; const data = publicTask(task); if (task.status === 'cancelled' || task.status === 'expired') destroy(task); res.json({ ok: true, data }); } catch (error: any) { task.status = 'failed'; destroy(task); res.status(502).json({ ok: false, error: error.message }); } });
     app.post('/api/wx-login/tasks/:taskId/confirm', async (req, res) => { const task = findTask(req, res); if (!task) return; try { if (!task.pending) task.pending = confirm(task).finally(() => { task.pending = undefined; }); await task.pending; res.json({ ok: true, data: publicTask(task) }); } catch (error: any) { task.status = 'failed'; destroy(task); res.status(502).json({ ok: false, error: error.message }); } });
-    app.post('/api/wx-login/tasks/:taskId/code', async (req, res) => { const task = findTask(req, res); if (!task) return; try { if (!task.pending) task.pending = consumeCode(task).finally(() => { task.pending = undefined; }); await task.pending; const data = { openid: task.session.openid, app_id: TARGET_APP_ID, code: task.code, nickname: task.session.nickname || '', err_msg: 'login:ok' }; destroy(task); res.json({ ok: true, data }); } catch (error: any) { task.status = 'failed'; destroy(task); res.status(502).json({ ok: false, error: error.message }); } });
+    app.post('/api/wx-login/tasks/:taskId/code', async (req, res) => { const task = findTask(req, res); if (!task) return; try { if (!task.pending) task.pending = consumeCode(task).finally(() => { task.pending = undefined; }); await task.pending; const data = { openid: task.session.openid, app_id: TARGET_APP_ID, code: task.code, nickname: task.session.nickname || '', err_msg: 'login:ok', loginBuffer: task.loginBuffer || '', credentials: task.credentials || null }; destroy(task); res.json({ ok: true, data }); } catch (error: any) { task.status = 'failed'; destroy(task); res.status(502).json({ ok: false, error: error.message }); } });
 }
 module.exports = { mountWxLoginRoutes };

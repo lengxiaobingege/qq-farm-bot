@@ -36,6 +36,7 @@ let wxPollController: AbortController | undefined
 let wxPollInFlight: Promise<void> | undefined
 let wxPollKey = ''
 let wxPendingCode = ''
+let wxPendingWxSession: Record<string, any> | null = null
 let qrNameSubmitTimer: ReturnType<typeof setTimeout> | undefined
 
 const wechatQrLoginEnabled = computed(() => loginSettingsLoaded.value && loginSettings.value.wechatQrLogin)
@@ -109,7 +110,9 @@ async function submitPendingQrAccount(platform: 'wx' | 'qq') {
   wxError.value = ''
   wxStatus.value = props.editData ? '正在重新登录...' : '正在添加账号...'
 
-  const payload: any = { name, code, platform, loginType: 'manual' }
+  // 携带扫码会话（loginBuffer/凭据），账号掉线后才能自动重新登录
+  const payload: any = { name, code, platform, loginType: 'manual', ...(wxPendingWxSession || {}) }
+  wxPendingWxSession = null
   const saved = await addAccount(payload, !!props.editData)
   if (!saved && props.show && activeLoginTab.value === 'wx_qr')
     wxPendingCode = code
@@ -200,6 +203,7 @@ function resetWxLogin() {
   wxQrUrl.value = ''
   wxLoading.value = false
   wxPendingCode = ''
+  wxPendingWxSession = null
   clearQrNameSubmitTimer()
 }
 
@@ -213,12 +217,38 @@ async function getWxCodeAndAdd(taskId: string, flowVersion: number) {
   const codeResult = await api.post(`/api/wx-login/tasks/${taskId}/code`)
   if (!isWxFlowActive(taskId, flowVersion))
     return
-  const code = String(codeResult.data?.data?.code || '').trim()
-  const nickname = String(codeResult.data?.data?.nickname || '').trim()
+  const data = codeResult.data?.data || {}
+  const code = String(data.code || '').trim()
+  const nickname = String(data.nickname || '').trim()
   if (!code)
     throw new Error('未获取到登录 Code')
 
+  // 保存扫码会话（loginBuffer + 凭据），账号掉线后才能自动重新登录
+  wxPendingWxSession = buildWxSessionFields(data)
   await addQrAccount('wx', code, nickname)
+}
+
+function buildWxSessionFields(data: any): Record<string, any> | null {
+  const fields: Record<string, any> = {}
+  const loginBuffer = String(data?.loginBuffer || '').trim()
+  if (loginBuffer)
+    fields.loginBuffer = loginBuffer
+  const c = data?.credentials || {}
+  if (c.openid)
+    fields.wxOpenId = c.openid
+  if (c.accessToken)
+    fields.wxAccessToken = c.accessToken
+  if (c.refreshToken)
+    fields.wxRefreshToken = c.refreshToken
+  if (c.loginType)
+    fields.wxLoginType = c.loginType
+  if (c.expiresAt)
+    fields.wxExpiresAt = c.expiresAt
+  if (c.expiresIn)
+    fields.wxExpiresIn = c.expiresIn
+  if (c.refreshTokenObservedAt)
+    fields.wxRefreshTokenObservedAt = c.refreshTokenObservedAt
+  return Object.keys(fields).length ? fields : null
 }
 
 async function confirmWxLogin(taskId: string, flowVersion: number) {
