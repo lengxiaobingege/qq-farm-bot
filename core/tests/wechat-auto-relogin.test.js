@@ -140,10 +140,22 @@ test('persists refreshed WeChat credentials after auto relogin', async () => {
     assert.equal(harness.issued[0].credentials.refreshToken, 'old-refresh');
 });
 
-test('waits 30 seconds before the first yyb-go code refresh', () => {
+test('waits 60 seconds before the first kickout code refresh', () => {
     const harness = createHarness({ retryDelaysMs: undefined });
     harness.service.handleDisconnect('1', 'wx-user', 'kickout:test');
-    assert.equal([...harness.tasks.values()][0].delayMs, 30000);
+    assert.equal([...harness.tasks.values()][0].delayMs, 60000);
+});
+
+test('pauses kickout relogin after 3 kicks within 10 minutes', () => {
+    const harness = createHarness({ retryDelaysMs: undefined });
+    for (let i = 0; i < 3; i++) {
+        assert.equal(harness.service.handleDisconnect('1', 'wx-user', 'kickout:test'), true);
+    }
+    assert.equal(harness.service.handleDisconnect('1', 'wx-user', 'kickout:test'), false);
+    assert.equal(
+        harness.accountLogs.some(entry => entry[0] === 'wx_auto_relogin_skipped' && String(entry[1] || '').includes('已暂停自动重登')),
+        true,
+    );
 });
 
 test('skips auto relogin when the setting is disabled or loginBuffer is missing', () => {

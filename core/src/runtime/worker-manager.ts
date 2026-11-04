@@ -370,6 +370,46 @@ function createWorkerManager(options: WorkerManagerOptions) {
                     onAccountDisconnectCb(accountId, worker.name, `ws_error:${code}`);
                 }
             }
+        } else if (msg.type === 'account_kicked') {
+            // 被服务端踢下线（如已在其他终端登录）。此前该消息无人处理，
+            // 账号直接停止且从不触发微信离线自动重登；现在同样交给重登服务，
+            // 用已保存的扫码会话换新 Code 自动恢复。
+            if (worker.terminalHandled) return;
+            worker.terminalHandled = true;
+            const reason = String(msg.reason || '未知');
+            const reasonCode = Number(msg.reasonCode) || 0;
+            if (worker.status?.connection) worker.status.connection.connected = false;
+            if (worker.requests.size > 0) {
+                for (const [reqId, req] of worker.requests.entries()) {
+                    managerScheduler.clear(`api_timeout_${accountId}_${reqId}`);
+                    try { req.reject(new Error('账号被踢下线')); } catch (err) { ignoreError('core/src/runtime/worker-manager.ts:account_kicked', err); }
+                }
+                worker.requests.clear();
+            }
+            log('系统', `账号 ${worker.name} 被踢下线（${reason}），将尝试自动重新登录`, {
+                accountId: String(accountId),
+                accountName: worker.name,
+                reason,
+                reasonCode,
+                diagnostics: msg.diagnostics || null,
+            });
+            addAccountLog(
+                'account_kicked',
+                `账号 ${worker.name} 被踢下线（${reason}）`,
+                accountId,
+                worker.name,
+                { reason, reasonCode, diagnostics: msg.diagnostics || null },
+            );
+            triggerOfflineReminder({
+                accountId,
+                accountName: worker.name,
+                reason: `kickout:${reason}`,
+                offlineMs: 0,
+            });
+            if (onAccountDisconnectCb) {
+                onAccountDisconnectCb(accountId, worker.name, `kickout:${reason}`);
+            }
+            stopWorker(accountId);
         } else if (msg.type === 'account_disconnected') {
             if (worker.terminalHandled) return;
             worker.terminalHandled = true;

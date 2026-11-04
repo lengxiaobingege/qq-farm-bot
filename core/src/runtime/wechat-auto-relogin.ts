@@ -345,7 +345,26 @@ function createWechatAutoReloginService(options: WechatAutoReloginOptions) {
         }
     }
 
+    // 被挤下线（kickout）的重登保护：延迟重登避免与用户手机端立即互踢，
+    // 且同一账号短时间内被挤多次时暂停自动重登，防止 bot 与手机循环互挤
+    const kickoutReloginTimes = new Map<string, number[]>();
+    const KICKOUT_WINDOW_MS = 10 * 60 * 1000;
+    const KICKOUT_MAX_RELOGINS = 3;
+    const KICKOUT_DELAY_MS = 60000;
+
     function handleDisconnect(accountId: string, accountName: string, reason: string): boolean {
+        if (String(reason || '').startsWith('kickout')) {
+            const id = String(accountId || '');
+            const now = Date.now();
+            const times = (kickoutReloginTimes.get(id) || []).filter((t: number) => now - t < KICKOUT_WINDOW_MS);
+            if (times.length >= KICKOUT_MAX_RELOGINS) {
+                kickoutReloginTimes.set(id, times);
+                return skip(id, accountName, reason, `短时间内已被挤下线 ${times.length} 次，已暂停自动重登，避免与手机端循环互挤，请手动处理`);
+            }
+            times.push(now);
+            kickoutReloginTimes.set(id, times);
+            return schedule(accountId, accountName, reason, KICKOUT_DELAY_MS);
+        }
         const delayMs = isHostSleepReason(reason) ? 0 : (retryDelaysMs[0] || 30000);
         return schedule(accountId, accountName, reason, delayMs);
     }
