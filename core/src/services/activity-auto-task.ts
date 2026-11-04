@@ -3,7 +3,6 @@ export {};
  * 活动任务自动化 - 自动执行活动中心的每日任务与奖励领取
  */
 
-const { sendMsgAsync } = require('../utils/network');
 const { types } = require('../utils/proto');
 const { getServerTimeSec, toNum, log, sleep } = require('../utils/utils');
 const { isAutomationOn } = require('../models/store');
@@ -166,35 +165,12 @@ async function autoMilkTea(): Promise<{ claimed: number; message: string }> {
     }
 }
 
-async function autoPumpkin(): Promise<{ claimed: number; message: string }> {
-    if (!isAutomationOn('activity_task')) return { claimed: 0, message: '自动化未开启' };
-    try {
-        const { body: replyBody } = await sendMsgAsync('gamepb.activitypb.ActivityService', 'GetGroup', types.GetGroupRequest.encode({ group_id: MILK_GROUP_ID }).finish());
-        const reply = types.MilkTeaGetGroupReply.decode(replyBody);
-        const entry = (reply.group?.children || []).find((v: any) => String(v?.head?.activity_id) === '2026030200');
-        if (!entry) return { claimed: 0, message: '南瓜活动未找到' };
-        const head = entry.head;
-        const now = getServerTimeSec();
-        const active = toNum(head.begin_time) <= now && toNum(head.end_time) > now;
-        if (!active) return { claimed: 0, message: '南瓜活动未开放' };
-
-        // 南瓜乐翻天无 gameplayKey 与明确操作协议，仅记录活跃状态，不执行写操作
-        log('活动任务', '南瓜乐翻天处于活跃状态，暂无可自动化操作', { module: 'activity_task', event: 'pumpkin', result: 'ok' });
-        return { claimed: 0, message: '南瓜活动活跃中，暂无可自动化操作' };
-    } catch (e: any) {
-        return { claimed: 0, message: logActivityError('pumpkin', '南瓜', e) };
-    }
-}
-
 async function checkAndClaimActivityTasks(): Promise<void> {
     if (!isAutomationOn('activity_task')) return;
 
     const results: string[] = [];
     const milkResult = await autoMilkTea();
     if (milkResult.message) results.push(milkResult.message);
-
-    const pumpkinResult = await autoPumpkin();
-    if (pumpkinResult.message) results.push(pumpkinResult.message);
 
     if (results.length > 0) {
         log('活动任务', results.join('，'), { module: 'activity_task', event: 'activity_task_tick', result: 'ok' });
@@ -204,5 +180,4 @@ async function checkAndClaimActivityTasks(): Promise<void> {
 module.exports = {
     checkAndClaimActivityTasks,
     autoMilkTea,
-    autoPumpkin,
 };
