@@ -8,8 +8,11 @@ const { getServerTimeSec, toNum, log, sleep } = require('../utils/utils');
 const { isAutomationOn } = require('../models/store');
 const { getMilkTeaActivity, operateMilkTeaActivity } = require('./milk-tea');
 const { getSolarCalendar, operateSolarCalendar } = require('./solar-calendar');
+const { getShareRewardActivity, operateShareRewardActivity } = require('./share-reward-activity');
 
 const MILK_GROUP_ID = '2026110100';
+// 快乐不独享当前场次（挂奶茶活动分组下，10-15 ~ 11-16）
+const HAPPY_ACTIVITY_ID = '2026110104';
 
 // 同一活动的同一错误短时间内不重复写日志，避免活动结束/资源不足时每个 tick 刷屏
 const ERROR_REPEAT_WINDOW_MS = 30 * 60 * 1000;
@@ -219,6 +222,40 @@ async function autoMilkTea(): Promise<{ claimed: number; message: string }> {
     }
 }
 
+async function autoHappy(): Promise<{ claimed: number; message: string }> {
+    if (!isAutomationOn('activity_task')) return { claimed: 0, message: '自动化未开启' };
+    try {
+        const state: any = await getShareRewardActivity(HAPPY_ACTIVITY_ID);
+        if (!state || !state.active) return { claimed: 0, message: '快乐包活动未开放' };
+
+        let claimed = 0;
+        const done: string[] = [];
+        if (state.canClaimDaily) {
+            await operateShareRewardActivity(HAPPY_ACTIVITY_ID, 'daily');
+            claimed += 1;
+            done.push('领取每日快乐值');
+            log('活动任务', '快乐包领取每日快乐值', { module: 'activity_task', event: 'claim_happy_daily', result: 'ok' });
+            await sleep(500);
+        }
+        if (state.canShare) {
+            await operateShareRewardActivity(HAPPY_ACTIVITY_ID, 'share');
+            claimed += 1;
+            done.push('每日首次分享');
+            log('活动任务', '快乐包执行每日首次分享', { module: 'activity_task', event: 'share_happy', result: 'ok' });
+            await sleep(500);
+        }
+        if (state.canClaimMilestones) {
+            await operateShareRewardActivity(HAPPY_ACTIVITY_ID, 'milestones');
+            claimed += 1;
+            done.push('档位奖励');
+            log('活动任务', '快乐包领取可用档位奖励', { module: 'activity_task', event: 'claim_happy_milestones', result: 'ok' });
+        }
+        return { claimed, message: done.length > 0 ? `快乐包${done.join('，')}` : '' };
+    } catch (e: any) {
+        return { claimed: 0, message: logActivityError('happy', '快乐包', e) };
+    }
+}
+
 // 节令日历当天只执行一次：记录最近一次执行的服务器日期，同一天内不再查询/操作
 let lastSolarRunDay = '';
 
@@ -285,6 +322,9 @@ async function checkAndClaimActivityTasks(): Promise<void> {
     const milkResult = await autoMilkTea();
     if (milkResult.message) results.push(milkResult.message);
 
+    const happyResult = await autoHappy();
+    if (happyResult.message) results.push(happyResult.message);
+
     const solarResult = await autoSolar();
     if (solarResult.message) results.push(solarResult.message);
 
@@ -296,5 +336,6 @@ async function checkAndClaimActivityTasks(): Promise<void> {
 module.exports = {
     checkAndClaimActivityTasks,
     autoMilkTea,
+    autoHappy,
     autoSolar,
 };
