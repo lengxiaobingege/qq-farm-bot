@@ -121,8 +121,8 @@ async function autoMilkTea(): Promise<AutoResult> {
             const availableFruits = (workshopState.fruits || []).filter((v: any) => !v.locked && toNum(v.count) > 0);
             if (availableFruits.length > 0) {
                 await safeStep('制作饮品', async () => {
-                    const fruitUids = availableFruits.map((v: any) => String(v.uid));
-                    await operateMilkTeaActivity('craft', { fruit_uids: fruitUids });
+                    const fruits = availableFruits.map((v: any) => ({ uid: String(v.uid), count: toNum(v.count) }));
+                    await operateMilkTeaActivity('craft', { fruits });
                     claimed += availableFruits.length;
                     log('活动任务', `奶茶制作饮品 ${availableFruits.length} 杯`, { module: 'activity_task', event: 'craft_milk_drink', result: 'ok' });
                 });
