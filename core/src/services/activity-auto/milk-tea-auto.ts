@@ -33,8 +33,10 @@ async function autoMilkTea(): Promise<AutoResult> {
             await sleep(500);
         }
 
-        // 领取员工工资
-        const slips = Array.isArray(state.work?.slips) ? state.work.slips : [];
+        // 领取员工工资（可领工资单在工作页，需单独拉取）
+        let wageState: any = null;
+        try { wageState = await getMilkTeaActivity('work'); } catch { wageState = null; }
+        const slips = Array.isArray(wageState?.work?.slips) ? wageState.work.slips : [];
         const hasWages = slips.some((v: any) => toNum(v.wage_status) === 1);
         if (hasWages) {
             await safeStep('领取员工工资', async () => {
