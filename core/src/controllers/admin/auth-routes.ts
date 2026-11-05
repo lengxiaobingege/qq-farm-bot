@@ -22,6 +22,36 @@ const adminLogger = createModuleLogger('admin');
 function mountAuthRoutes(app: Application, ctx: AdminContext): void {
     const authRequired = createAuthRequired(ctx);
 
+    // 首次部署状态查询（免鉴权）：前端据此展示「设置密码」表单
+    app.get('/api/setup-status', (_req: Request, res: Response) => {
+        res.json({ ok: true, data: { needsSetup: adminStore.isSetupPending() } });
+    });
+
+    // 首次登录自行设置管理员密码（免鉴权，但仅在未初始化时可用）
+    app.post('/api/setup', (req: Request, res: Response) => {
+        const { password } = req.body || {};
+        if (!password) return res.status(400).json({ ok: false, error: '请输入要设置的密码' });
+        const clientIp = getClientIp(req);
+        const result = adminStore.setupPassword(String(password));
+        if (!result.ok) {
+            adminLogger.warn('首次设置密码失败', { error: result.error, ip: clientIp });
+            return res.status(400).json({ ok: false, error: result.error });
+        }
+        const token = issueToken();
+        ctx.tokens.add(token);
+        saveSessions(ctx.tokens);
+        adminLogger.info('管理员首次设置密码完成', { username: result.info.username, ip: clientIp });
+        return res.json({
+            ok: true,
+            data: {
+                token,
+                role: 'admin',
+                user: { username: result.info.username },
+                mustChangePassword: false,
+            },
+        });
+    });
+
     app.post('/api/login', (req: Request, res: Response) => {
         const { username, password } = req.body || {};
         if (!username || !password) {
@@ -70,7 +100,8 @@ function mountAuthRoutes(app: Application, ctx: AdminContext): void {
     });
 
     app.use('/api', (req: Request, res: Response, next: any) => {
-        if (req.path === '/login' || req.path === '/game-version') return next();
+        if (req.path === '/login' || req.path === '/game-version'
+            || req.path === '/setup' || req.path === '/setup-status') return next();
         return authRequired(req, res, next);
     });
 

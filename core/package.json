@@ -9,7 +9,6 @@
   "bin": "client.js",
   "scripts": {
     "start": "node client.js",
-    "admin:password": "node dist/scripts/show-admin-password.js",
     "dev": "tsx client.ts",
     "build": "tsc && tsc -p tsconfig.client.json",
     "build:ts": "tsc && tsc -p tsconfig.client.json",

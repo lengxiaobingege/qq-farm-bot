@@ -1,49 +1,32 @@
 export {};
 const fs = require('node:fs');
-const crypto = require('node:crypto');
 const { getDataFile, ensureDataDir } = require('../config/runtime-paths');
 const security = require('./auth-security');
 
 const ADMIN_FILE: string = getDataFile('admin.json');
-// 初始密码一次性凭据文件：仅供查询命令读取一次，读取后立即删除
-const INITIAL_PASSWORD_FILE: string = getDataFile('admin-initial-password.json');
 
 interface AdminRecord {
     username: string;
     password: string;
     createdAt: number;
     mustChangePassword?: boolean;
+    needsSetup?: boolean;
 }
 
 let admin: AdminRecord | null = null;
 
-// 生成 16 位强密码：大写/小写/数字/特殊符号各至少 1 位，其余随机填充后洗牌
-function generateStrongPassword(length: number = 16): string {
-    const groups = [
-        'ABCDEFGHJKLMNPQRSTUVWXYZ',
-        'abcdefghijkmnpqrstuvwxyz',
-        '23456789',
-        '#%^*+?!-_=',
-    ];
-    const rand = (max: number): number => crypto.randomInt(0, max);
-    const chars: string[] = groups.map(g => g[rand(g.length)]);
-    const all = groups.join('');
-    while (chars.length < length) chars.push(all[rand(all.length)]);
-    // Fisher–Yates 洗牌，避免固定位置模式
-    for (let i = chars.length - 1; i > 0; i--) {
-        const j = rand(i + 1);
-        [chars[i], chars[j]] = [chars[j], chars[i]];
-    }
-    return chars.join('');
-}
-
 function normalizeAdmin(raw: any): AdminRecord | null {
-    if (!raw || typeof raw !== 'object' || !String(raw.password || '').trim()) return null;
+    if (!raw || typeof raw !== 'object') return null;
+    const needsSetup = raw.needsSetup === true;
+    const password = String(raw.password || '');
+    // 未初始化状态允许空密码；已初始化的记录必须有密码哈希
+    if (!needsSetup && !password.trim()) return null;
     return {
         username: String(raw.username || 'admin').trim() || 'admin',
-        password: String(raw.password),
+        password,
         createdAt: Number(raw.createdAt) || Date.now(),
         mustChangePassword: raw.mustChangePassword === true || undefined,
+        needsSetup: needsSetup || undefined,
     };
 }
 
@@ -65,31 +48,55 @@ function loadAdmin(): AdminRecord {
         admin = null;
     }
     if (!admin) {
-        // 首次部署：生成 16 位随机强密码，明文仅写入一次性凭据文件供查询命令读取一次
-        const initialPassword = generateStrongPassword(16);
+        // 首次部署：账号固定为 admin，密码留空，由用户在首次登录页自行设置
         admin = {
             username: 'admin',
-            password: security.hashPassword(initialPassword),
+            password: '',
             createdAt: Date.now(),
-            mustChangePassword: true,
+            needsSetup: true,
         };
         saveAdmin();
-        try {
-            fs.writeFileSync(INITIAL_PASSWORD_FILE, JSON.stringify({
-                username: 'admin',
-                password: initialPassword,
-                createdAt: Date.now(),
-            }, null, 2), { mode: 0o600 });
-        } catch { /* 查询文件写失败不影响主流程 */ }
-        console.log('[管理员] 已创建默认账号 admin，初始密码为 16 位随机强密码');
-        console.log('[管理员] 执行 `npm run admin:password`（core 目录）可查询一次，查询后立即失效');
+        console.log('[管理员] 已创建默认账号 admin，首次登录请在网页上自行设置密码');
     }
     return admin;
 }
 
-function getAdminInfo(): { username: string; role: 'admin'; mustChangePassword: boolean } {
+function getAdminInfo(): { username: string; role: 'admin'; mustChangePassword: boolean; needsSetup: boolean } {
     const current = loadAdmin();
-    return { username: current.username, role: 'admin', mustChangePassword: current.mustChangePassword === true };
+    return {
+        username: current.username,
+        role: 'admin',
+        mustChangePassword: current.mustChangePassword === true,
+        needsSetup: current.needsSetup === true,
+    };
+}
+
+function isSetupPending(): boolean {
+    return loadAdmin().needsSetup === true;
+}
+
+/**
+ * 首次登录设置管理员密码：仅在尚未初始化时可用，设置成功后立即生效。
+ * 返回 {ok:false,error} 或管理员信息（供调用方直接签发登录令牌）。
+ */
+function setupPassword(newPassword: string): { ok: boolean; error?: string; message?: string; info?: any } {
+    const current = loadAdmin();
+    if (!current.needsSetup) return { ok: false, error: '管理员密码已设置，请直接登录' };
+    const password = String(newPassword || '');
+    const validation = security.validatePasswordStrength(password);
+    if (!validation.valid) return { ok: false, error: validation.errors.join('；') };
+    // 初始化密码额外要求：不少于 8 位，且至少包含大写、小写、数字、符号中的 3 类
+    const typeCount = [/[a-z]/, /[A-Z]/, /\d/, /[!@#$%^&*(),.?":{}|<>_\-+=[\]\\;'/`~]/]
+        .filter(re => re.test(password)).length;
+    if (password.length < 8 || typeCount < 3) {
+        return { ok: false, error: '密码至少 8 位，且包含大写字母、小写字母、数字、特殊符号中的至少 3 类' };
+    }
+    current.password = security.hashPassword(password);
+    delete current.needsSetup;
+    delete current.mustChangePassword;
+    saveAdmin();
+    console.log('[管理员] 首次设置密码完成，账号 admin 已启用');
+    return { ok: true, message: '密码设置成功', info: getAdminInfo() };
 }
 
 function validateAdmin(username: string, password: string, ip: string = 'unknown'): any {
@@ -100,6 +107,9 @@ function validateAdmin(username: string, password: string, ip: string = 'unknown
     if (lockout.locked) return { error: 'locked', ...lockout };
 
     const current = loadAdmin();
+    if (current.needsSetup) {
+        return { error: 'setup_required', message: '尚未设置管理员密码，请先在登录页完成首次设置' };
+    }
     if (username !== current.username || !security.verifyPassword(password, current.password)) {
         const attempt = security.recordFailedAttempt(ip);
         return attempt.locked
@@ -117,6 +127,7 @@ function validateAdmin(username: string, password: string, ip: string = 'unknown
 
 function changePassword(oldPassword: string, newPassword: string): { ok: boolean; error?: string; message?: string } {
     const current = loadAdmin();
+    if (current.needsSetup) return { ok: false, error: '请先完成首次密码设置' };
     if (!security.verifyPassword(oldPassword, current.password)) return { ok: false, error: '当前密码错误' };
     const validation = security.validatePasswordStrength(newPassword);
     if (!validation.valid) return { ok: false, error: validation.errors.join('；') };
@@ -128,4 +139,4 @@ function changePassword(oldPassword: string, newPassword: string): { ok: boolean
 
 loadAdmin();
 
-module.exports = { getAdminInfo, validateAdmin, changePassword };
+module.exports = { getAdminInfo, isSetupPending, setupPassword, validateAdmin, changePassword };

@@ -14,6 +14,9 @@ const gameVersion = ref('')
 const wxGameVersion = ref('')
 const username = ref('')
 const password = ref('')
+const confirmPassword = ref('')
+const needsSetup = ref(false)
+const setupChecking = ref(true)
 const error = ref('')
 const success = ref('')
 const loading = ref(false)
@@ -43,15 +46,52 @@ function validateForm(): boolean {
     return false
   }
   if (!password.value) {
-    error.value = '请输入密码'
+    error.value = needsSetup.value ? '请输入要设置的密码' : '请输入密码'
+    return false
+  }
+  if (needsSetup.value && password.value !== confirmPassword.value) {
+    error.value = '两次输入的密码不一致'
     return false
   }
   return true
 }
 
+async function handleSetup() {
+  loading.value = true
+  error.value = ''
+  try {
+    const res = await api.post('/api/setup', { password: password.value })
+    if (res.data.ok) {
+      userStore.token = res.data.data.token
+      userStore.userInfo = {
+        username: res.data.data.user.username,
+        role: 'admin',
+        mustChangePassword: false,
+      }
+      success.value = '密码设置成功，正在进入面板'
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 500)
+    }
+    else {
+      error.value = res.data.error || '设置失败'
+    }
+  }
+  catch (e: any) {
+    error.value = getApiErrorMessage(e, '设置失败')
+  }
+  finally {
+    loading.value = false
+  }
+}
+
 async function handleSubmit() {
   if (!validateForm())
     return
+  if (needsSetup.value) {
+    await handleSetup()
+    return
+  }
 
   loading.value = true
   error.value = ''
@@ -113,7 +153,26 @@ async function fetchGameVersion() {
   }
 }
 
-onMounted(fetchGameVersion)
+async function checkSetupStatus() {
+  try {
+    const res = await api.get('/api/setup-status')
+    if (res.data.ok && res.data.data?.needsSetup) {
+      needsSetup.value = true
+      username.value = 'admin'
+    }
+  }
+  catch {
+    // 接口不可用时保持普通登录形态
+  }
+  finally {
+    setupChecking.value = false
+  }
+}
+
+onMounted(() => {
+  fetchGameVersion()
+  checkSetupStatus()
+})
 </script>
 
 <template>
@@ -127,7 +186,7 @@ onMounted(fetchGameVersion)
             QQ农场智能助手
           </h1>
           <p class="logo-subtitle">
-            超级管理员登录
+            {{ needsSetup ? '首次使用 · 设置管理员密码' : '超级管理员登录' }}
           </p>
         </div>
       </header>
@@ -144,6 +203,7 @@ onMounted(fetchGameVersion)
             type="text"
             placeholder="请输入用户名"
             autocomplete="username"
+            :disabled="needsSetup"
             required
           />
           <p v-if="username && !usernameValid.valid" class="form-hint error">
@@ -154,14 +214,32 @@ onMounted(fetchGameVersion)
         <div class="form-group">
           <label class="form-label" for="password">
             <span class="i-carbon-locked" />
-            密码
+            {{ needsSetup ? '设置密码' : '密码' }}
           </label>
           <BaseInput
             id="password"
             v-model="password"
             type="password"
-            placeholder="请输入密码"
-            autocomplete="current-password"
+            :placeholder="needsSetup ? '至少8位，含大小写/数字/符号中3类' : '请输入密码'"
+            :autocomplete="needsSetup ? 'new-password' : 'current-password'"
+            required
+          />
+          <p v-if="needsSetup" class="form-hint">
+            账号固定为 admin；密码至少 8 位，且包含大写字母、小写字母、数字、特殊符号中的至少 3 类
+          </p>
+        </div>
+
+        <div v-if="needsSetup" class="form-group">
+          <label class="form-label" for="confirmPassword">
+            <span class="i-carbon-locked" />
+            确认密码
+          </label>
+          <BaseInput
+            id="confirmPassword"
+            v-model="confirmPassword"
+            type="password"
+            placeholder="请再次输入密码"
+            autocomplete="new-password"
             required
           />
         </div>
@@ -179,10 +257,10 @@ onMounted(fetchGameVersion)
           {{ success }}
         </div>
 
-        <BaseButton type="submit" variant="primary" block :loading="loading" class="submit-btn">
+        <BaseButton type="submit" variant="primary" block :loading="loading || setupChecking" class="submit-btn">
           <span v-if="!loading" class="inline-flex items-center gap-2">
-            <span class="i-carbon-login" />
-            登录
+            <span :class="needsSetup ? 'i-carbon-password' : 'i-carbon-login'" />
+            {{ needsSetup ? '设置密码并登录' : '登录' }}
           </span>
         </BaseButton>
       </form>
@@ -318,6 +396,11 @@ onMounted(fetchGameVersion)
   margin: 0;
   color: var(--ui-danger);
   font-size: 11px;
+}
+
+.form-hint:not(.error) {
+  color: var(--ui-muted);
+  line-height: 1.5;
 }
 
 .message {
