@@ -16,7 +16,8 @@ const { logActivityError } = require('./shared');
 let lastSolarRunDay = '';
 
 function serverDayKey(serverTimeSec: number): string {
-    return new Date(serverTimeSec * 1000).toISOString().slice(0, 10);
+    // 按北京时间(UTC+8)计算“当天”，与游戏日历口径一致
+    return new Date((serverTimeSec + 8 * 3600) * 1000).toISOString().slice(0, 10);
 }
 
 async function autoSolar(): Promise<AutoResult> {

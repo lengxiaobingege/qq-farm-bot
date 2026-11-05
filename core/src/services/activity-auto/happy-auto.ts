@@ -9,7 +9,7 @@ import type { AutoResult } from './shared';
 const { isAutomationOn } = require('../../models/store');
 const { log, sleep } = require('../../utils/utils');
 const { getShareRewardActivity, operateShareRewardActivity } = require('../share-reward-activity');
-const { logActivityError } = require('./shared');
+const { logActivityError, safeStep, takeStepFailures } = require('./shared');
 
 const HAPPY_ACTIVITY_ID = '2026110104';
 
@@ -22,24 +22,35 @@ async function autoHappy(): Promise<AutoResult> {
         let claimed = 0;
         const done: string[] = [];
         if (state.canClaimDaily) {
-            await operateShareRewardActivity(HAPPY_ACTIVITY_ID, 'daily');
-            claimed += 1;
-            done.push('领取每日快乐值');
-            log('活动任务', '快乐包领取每日快乐值', { module: 'activity_task', event: 'claim_happy_daily', result: 'ok' });
+            await safeStep('领取每日快乐值', async () => {
+                await operateShareRewardActivity(HAPPY_ACTIVITY_ID, 'daily');
+                claimed += 1;
+                done.push('领取每日快乐值');
+                log('活动任务', '快乐包领取每日快乐值', { module: 'activity_task', event: 'claim_happy_daily', result: 'ok' });
+            });
             await sleep(500);
         }
         if (state.canShare) {
-            await operateShareRewardActivity(HAPPY_ACTIVITY_ID, 'share');
-            claimed += 1;
-            done.push('每日首次分享');
-            log('活动任务', '快乐包执行每日首次分享', { module: 'activity_task', event: 'share_happy', result: 'ok' });
+            await safeStep('每日首次分享', async () => {
+                await operateShareRewardActivity(HAPPY_ACTIVITY_ID, 'share');
+                claimed += 1;
+                done.push('每日首次分享');
+                log('活动任务', '快乐包执行每日首次分享', { module: 'activity_task', event: 'share_happy', result: 'ok' });
+            });
             await sleep(500);
         }
         if (state.canClaimMilestones) {
-            await operateShareRewardActivity(HAPPY_ACTIVITY_ID, 'milestones');
-            claimed += 1;
-            done.push('档位奖励');
-            log('活动任务', '快乐包领取可用档位奖励', { module: 'activity_task', event: 'claim_happy_milestones', result: 'ok' });
+            await safeStep('档位奖励', async () => {
+                await operateShareRewardActivity(HAPPY_ACTIVITY_ID, 'milestones');
+                claimed += 1;
+                done.push('档位奖励');
+                log('活动任务', '快乐包领取可用档位奖励', { module: 'activity_task', event: 'claim_happy_milestones', result: 'ok' });
+            });
+        }
+        const failures = takeStepFailures();
+        if (failures.length > 0) {
+            const summary = new Error(failures.join('；'));
+            return { claimed, message: `${done.length > 0 ? `快乐包${done.join('，')}，` : ''}${logActivityError('happy', '快乐包', summary)}` };
         }
         return { claimed, message: done.length > 0 ? `快乐包${done.join('，')}` : '' };
     } catch (e: any) {

@@ -51,14 +51,15 @@ async function autoMilkTea(): Promise<AutoResult> {
         // 雇佣员工（按等级工位上限补满所有空位，直到满员或无可用员工；奶茶券不足则放弃雇佣这一轮）
         let hireSkipped = false;
         while (toNum(shopState.summary.shop_open_at) > 0 && !hireSkipped) {
+            const nowTs = getServerTimeSec();
             const slots = Array.isArray(shopState.shop?.slots) ? shopState.shop.slots : [];
             const levelInfo = (shopState.levels || []).find((v: any) => toNum(v.level) === toNum(shopState.summary.level));
             const capacity = toNum(levelInfo?.employee_slot_count) || Math.max(slots.length, 1);
-            const activeCount = slots.filter((v: any) => toNum(v.end_at) > now).length;
+            const activeCount = slots.filter((v: any) => toNum(v.end_at) > nowTs).length;
             if (activeCount >= capacity) break;
             const hireState = await getMilkTeaActivity('hireList', { durationId: 3 });
             const candidates = [...(hireState.hire?.friends || []), ...(hireState.hire?.robots || [])]
-                .filter((v: any) => toNum(v.state) === 0 && toNum(v.rehire_available_at) <= now);
+                .filter((v: any) => toNum(v.state) === 0 && toNum(v.rehire_available_at) <= nowTs);
             if (candidates.length === 0) break;
             const target = candidates[0];
             const targetGid = String(target.friend?.gid || target.robot?.gid || target.gid);
@@ -77,6 +78,7 @@ async function autoMilkTea(): Promise<AutoResult> {
                 const wage = dur.durationId === 3 ? wageTotal : toNum(list.hire.wage_total);
                 const ok = await safeStep(`雇佣员工(${dur.label})`, async () => {
                     await operateMilkTeaActivity('hire', {
+                        durationId: dur.durationId,
                         targetGid,
                         expectedCosts: [{ id: 1041, count: wage }]
                     });
