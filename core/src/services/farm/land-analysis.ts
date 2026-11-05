@@ -118,26 +118,10 @@ const OWNER_CLEANABLE_INTERACTION_ITEM_IDS = new Set(['301101', '301102', '5006'
 // 5005 青蛙是农场级事件，不绑定某一块土地；清理时通过 FarmingRequest.field 5 发送。
 const OWNER_CLEANABLE_FARM_SOCIAL_EVENT_ITEM_IDS = new Set(['5005']);
 
-const QIXI_DEW_ITEM_ID = '301103';
-const QIXI_MUTANT_CONFIG_ID = '13';
-const QIXI_DEW_HISTORY_CODES = new Set([9, 10]);
-
 function getPlantExtendedStatuses(plant: any): any[] {
     if (Array.isArray(plant?.field_40)) return plant.field_40.filter(Boolean);
     // 兼容旧 proto 或测试数据中的单对象形式。
     return plant?.field_40 ? [plant.field_40] : [];
-}
-
-function getQixiDewExtendedStatus(plant: any): any | null {
-    if (!getPlantMutantConfigIds(plant).includes(QIXI_MUTANT_CONFIG_ID)) return null;
-    return getPlantExtendedStatuses(plant).find((status: any) => (
-        QIXI_DEW_HISTORY_CODES.has(toNum(status?.value_1))
-        && toNum(status?.value_2) === 1
-    )) || null;
-}
-
-function getExtendedStatusInteractionItemId(plant: any): string {
-    return getQixiDewExtendedStatus(plant) ? QIXI_DEW_ITEM_ID : '';
 }
 
 function getInteractionItemMetadata(itemId: string): { name: string; activityId: number } {
@@ -256,24 +240,6 @@ function getPlantInteractionEffects(plant: any): any[] {
         });
     }
 
-    const qixiDewStatus = getQixiDewExtendedStatus(plant);
-    const extendedStatusItemId = qixiDewStatus ? QIXI_DEW_ITEM_ID : '';
-    if (
-        extendedStatusItemId
-        && !effects.some(effect => String(effect.itemId) === extendedStatusItemId)
-    ) {
-        const itemMetadata = getInteractionItemMetadata(extendedStatusItemId);
-        effects.push({
-            itemId: extendedStatusItemId,
-            itemName: itemMetadata.name,
-            activityId: itemMetadata.activityId,
-            effectType: toNum(qixiDewStatus?.value_1),
-            landId: '',
-            hostGid: '',
-            confirmed: true,
-            source: 'protocol-land-field-40',
-        });
-    }
     return effects;
 }
 
@@ -1127,7 +1093,6 @@ module.exports = {
     getCurrentPhase,
     getPlantStatusFlags,
     getPlantMutantConfigIds,
-    getExtendedStatusInteractionItemId,
     getPlantInteractionEffects,
     hasOwnerCleanableInteraction,
     getCleanableFarmSocialEventItemIds,

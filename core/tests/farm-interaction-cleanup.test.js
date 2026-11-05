@@ -92,8 +92,6 @@ test('qixi mutation uses official effect_name while keeping drought independent'
 
     assert.equal(detail.needWater, true);
     assert.deepEqual(detail.mutantEffects.map(item => item.name), ['喜鹊']);
-    assert.deepEqual(detail.interactionEffects.map(item => item.itemId), ['301103']);
-    assert.equal(detail.interactionEffects[0].activityId, effect.activityId);
 });
 
 test('crystal mutation uses the latest official effect_name mapping', () => {
@@ -206,28 +204,6 @@ test('field 40 history does not restore cleared golden beetles or footballs', ()
             .needInteractionCleanup,
         [23, 24],
     );
-});
-
-test('qixi dew fallback requires both its captured history code and mutation 13', () => {
-    const confirmedNineLand = growingLand(5, 0, {
-        mutant_config_ids: [13],
-        field_40: [{ value_1: 9, value_2: 1 }],
-    });
-    const confirmedTenLand = growingLand(12, 0, {
-        mutant_config_ids: [13],
-        field_40: [{ value_1: 10, value_2: 1 }],
-    });
-    const historyWithoutMutationLand = growingLand(6, 0, {
-        field_40: [{ value_1: 10, value_2: 1 }],
-    });
-    const mutationWithoutHistoryLand = growingLand(22, 0, {
-        mutant_config_ids: [13],
-    });
-
-    assert.deepEqual(buildLandDetail(confirmedNineLand).interactionEffects.map(item => item.itemId), ['301103']);
-    assert.deepEqual(buildLandDetail(confirmedTenLand).interactionEffects.map(item => item.itemId), ['301103']);
-    assert.deepEqual(buildLandDetail(historyWithoutMutationLand).interactionEffects, []);
-    assert.deepEqual(buildLandDetail(mutationWithoutHistoryLand).interactionEffects, []);
 });
 
 test('own Farming request keeps the two explicit zero-valued scene fields', async () => {

@@ -7,9 +7,46 @@ export {};
 
 import type { AutoResult } from './shared';
 const { isAutomationOn } = require('../../models/store');
+const { getOfflineReminder } = require('../../models/store/global-config');
+const { sendPushooMessage } = require('../push');
 const { getServerTimeSec, toNum, log, sleep } = require('../../utils/utils');
 const { getMilkTeaActivity, operateMilkTeaActivity } = require('../milk-tea');
 const { logActivityError, safeStep, takeStepFailures } = require('./shared');
+
+// 结算期收尾提醒：进入结算期后按北京日期每天最多推送一次
+let lastSettleRemindDay = '';
+
+function beijingDayKey(tsSec: number): string {
+    return new Date((tsSec + 8 * 3600) * 1000).toISOString().slice(0, 10);
+}
+
+async function maybeRemindMilkSettle(state: any): Promise<void> {
+    try {
+        const settleStart = toNum(state.settleStartTime);
+        const end = toNum(state.endTime);
+        const now = getServerTimeSec();
+        if (!(settleStart > 0 && now >= settleStart && end > 0 && now < end)) return;
+        const dayKey = beijingDayKey(now);
+        if (dayKey === lastSettleRemindDay) return;
+        const cfg = getOfflineReminder ? getOfflineReminder() : null;
+        const channel = String(cfg?.channel || '').trim().toLowerCase();
+        const endpoint = String(cfg?.endpoint || '').trim();
+        const token = String(cfg?.token || '').trim();
+        // 未配置推送渠道时静默跳过，不重复刷错误日志
+        if (!channel || (channel === 'webhook' && !endpoint) || (channel !== 'webhook' && channel !== 'dingtalk' && !token)) return;
+        lastSettleRemindDay = dayKey;
+        const remainDays = Math.max(1, Math.ceil((end - now) / 86400));
+        const result = await sendPushooMessage({
+            channel, endpoint, token, secret: String(cfg?.secret || '').trim(),
+            title: '奶茶进入结算期',
+            content: `奶茶热销中已进入结算期，剩余约 ${remainDays} 天。请及时兑换奖励并清仓库存，活动结束后未兑换奖励将失效。`,
+        });
+        if (result?.ok) log('活动任务', '奶茶结算期提醒发送成功', { module: 'activity_task', event: 'milk_settle_remind', result: 'ok' });
+        else log('错误', `奶茶结算期提醒发送失败: ${result?.msg || 'unknown'}`, { module: 'activity_task', event: 'milk_settle_remind', result: 'fail' });
+    } catch (e: any) {
+        log('错误', `奶茶结算期提醒发送异常: ${e.message}`, { module: 'activity_task', event: 'milk_settle_remind', result: 'fail' });
+    }
+}
 
 
 async function autoMilkTea(): Promise<AutoResult> {
@@ -21,6 +58,9 @@ async function autoMilkTea(): Promise<AutoResult> {
 
         let claimed = 0;
         const now = getServerTimeSec();
+
+        // 结算期提醒（每天一次，不阻塞主流程结果）
+        await maybeRemindMilkSettle(state);
 
         // 领取收银台收益
         const pending = Array.isArray(state.shop?.pending_rewards) ? state.shop.pending_rewards.filter((v: any) => toNum(v.count) > 0) : [];

@@ -6,24 +6,15 @@ import shareRewardInstances from '../activity-data/share-reward-instances.json';
 const LongModule = require('long');
 const { sendMsgAsync, GatewayError } = require('../utils/network');
 const { types } = require('../utils/proto');
-const { getItemById, getItemImageById, getEffectiveSellInfo, getMutantEffectsByIds } = require('../config/gameConfig');
-const { getServerTimeSec, getSystemDateKey } = require('../utils/utils');
+const { getItemById, getItemImageById } = require('../config/gameConfig');
+const { getServerTimeSec } = require('../utils/utils');
 const { getBag, getBagItems } = require('./warehouse');
-const { getActivityWindows, getSellConditionContext } = require('./activity-windows');
+const { getActivityWindows } = require('./activity-windows');
 const { buildActivityGameplayBindings, resolveActivityGameplays } = require('./activity-gameplay-registry');
-const { reportActivityShare } = require('./share');
-const weatherActivityService = require('./weather-activity');
 const { createStellarActivityService } = require('./activity-center/stellar');
-const { createCharityActivityService } = require('./activity-center/charity');
-const { createQixiActivityService } = require('./activity-center/qixi');
-const { createQingMeiActivityService } = require('./activity-center/qingmei');
 const { createPetDiaryService } = require('./activity-center/pet-diary');
 const {
-    createEmptyCharityRedFlowerState,
-    loadCharityRedFlowerState,
-    mergeCharityRedFlowerStates,
     mergeConstellationStates,
-    persistCharityRedFlowerState,
     stateRecordKey,
     loadConstellationState,
     persistConstellationState,
@@ -213,12 +204,6 @@ function activityDto(activity: any) {
     };
 }
 
-function activityWindowIsActive(activity: any, serverTime = getServerTimeSec()): boolean {
-    const beginTime = int64Number(activity?.begin_time ?? activity?.beginTime);
-    const endTime = int64Number(activity?.end_time ?? activity?.endTime);
-    return (beginTime <= 0 || serverTime >= beginTime) && (endTime <= 0 || serverTime <= endTime);
-}
-
 const {
     querySeason,
     querySolarTerms,
@@ -265,89 +250,6 @@ const {
     getActivityCenterSnapshot,
 });
 
-const {
-    getCurrentCharityRedFlowerActivity,
-    claimCharityRedFlowerSeeds,
-    donateCharityRedFlowerLove,
-    claimCharityRedFlowerDailyGift,
-    claimCharityRedFlowerProgressReward,
-    charityRedFlowerDto,
-    reconcileCharityProgressState,
-} = createCharityActivityService({
-    types,
-    sendMsgAsync,
-    GatewayError,
-    getServerTimeSec,
-    getSystemDateKey,
-    createEmptyCharityRedFlowerState,
-    loadCharityRedFlowerState,
-    mergeCharityRedFlowerStates,
-    persistCharityRedFlowerState,
-    int64String,
-    int64Number,
-    compareInt64,
-    bytesToText,
-    itemDto,
-    textContent,
-    businessError,
-    positiveDecimal,
-    activityWindowIsActive,
-    serializeMutation,
-});
-
-const {
-    getCurrentQixiActivity,
-    claimQixiBridgeRewards,
-    giftQixiSachet,
-} = createQixiActivityService({
-    types,
-    sendMsgAsync,
-    getBag,
-    getSellConditionContext,
-    getItemById,
-    getEffectiveSellInfo,
-    getServerTimeSec,
-    int64String,
-    int64Number,
-    bytesToText,
-    itemDto,
-    textContent,
-    businessError,
-    positiveDecimal,
-    activityWindowIsActive,
-    readBagBalances,
-    serializeMutation,
-    getActivityCenterSnapshot,
-});
-
-const {
-    getCurrentQingMeiActivity,
-    claimQingMeiDailySeed,
-    startQingMeiBrew,
-    continueQingMeiBrew,
-    settleQingMeiBrew,
-} = createQingMeiActivityService({
-    types,
-    sendMsgAsync,
-    GatewayError,
-    getBag,
-    getBagItems,
-    getMutantEffectsByIds,
-    getActivityWindows,
-    getSystemDateKey,
-    reportActivityShare,
-    int64String,
-    int64Number,
-    bytesToText,
-    itemDto,
-    textContent,
-    businessError,
-    positiveDecimal,
-    activityWindowIsActive,
-    serializeMutation,
-    getActivityCenterSnapshot,
-});
-
 function readBagBalances(bagReply: any, currencyIds: string[]): Map<string, string> {
     const requestedIds = new Set(currencyIds);
     const balances = new Map<string, bigint>(currencyIds.map(id => [id, 0n]));
@@ -377,8 +279,8 @@ async function settleRequest(operation: () => Promise<any>): Promise<SettledEntr
     }
 }
 
-function buildActivityDirectory(windows: any[], season: any, shop: any, solarTerms: any, constellation: any, qixi: any = null, weather: any = null, qingMei: any = null, charity: any = null) {
-    const gameplayBindings = buildActivityGameplayBindings({ season, shop, solarTerms, constellation, qixi, weather, qingMei, charity });
+function buildActivityDirectory(windows: any[], season: any, shop: any, solarTerms: any, constellation: any) {
+    const gameplayBindings = buildActivityGameplayBindings({ season, shop, solarTerms, constellation });
     const groups: any[] = [];
     for (const window of windows) {
         const id = String(window?.id || '').trim();
@@ -424,17 +326,9 @@ async function buildActivityCenterSnapshot(shopOverride: any = null) {
     const seasonResult = await settleRequest(querySeason);
     const solarResult = await settleRequest(querySolarTerms);
     const activityListResult = await settleRequest(getActivityWindows);
-    const qixiResult = await settleRequest(getCurrentQixiActivity);
-    const qingMeiResult = await settleRequest(getCurrentQingMeiActivity);
-    const charityResult = await settleRequest(getCurrentCharityRedFlowerActivity);
-    const weatherResult = await settleRequest(weatherActivityService.getCurrentWeatherActivity);
     const rawSeason = settledValue(seasonResult);
     const season = rawSeason ? normalizeSeason(rawSeason) : null;
     const solarTerms = solarResult.status === 'fulfilled' ? normalizeSolarTerms(solarResult.value) : null;
-    const qixi = settledValue(qixiResult);
-    const qingMei = settledValue(qingMeiResult);
-    const charity = settledValue(charityResult);
-    const weather = settledValue(weatherResult);
 
     let shopResult: SettledEntry;
     if (shopOverride) {
@@ -446,52 +340,26 @@ async function buildActivityCenterSnapshot(shopOverride: any = null) {
     }
     const shop = settledValue(shopResult);
     const constellation = rawSeason ? constellationFromSeasonReply(rawSeason) : null;
-    const actions = {
-        ...buildActions(season, solarTerms, constellation, shop),
-        qixiBridge: qixi?.actions?.bridge || { enabled: false, available: false, availabilityKnown: false },
-        qixiGift: qixi?.actions?.gift || { enabled: false, available: false, availabilityKnown: false },
-        qixiDew: qixi?.actions?.dew || { enabled: false, available: false, availabilityKnown: false },
-        charityClaimSeeds: charity?.actions?.claimSeeds || { enabled: false, available: false, availabilityKnown: false },
-        charityDonateLove: charity?.actions?.donateLove || { enabled: false, available: false, availabilityKnown: false },
-        charityClaimDailyGift: charity?.actions?.claimDailyGift || { enabled: false, available: false, availabilityKnown: false },
-        weatherResearch: weather?.actions?.advanceResearch || weather?.actions?.research || { enabled: false, available: false, availabilityKnown: false },
-    };
+    const actions = buildActions(season, solarTerms, constellation, shop);
     const activityWindows = settledValue(activityListResult) || [];
     return {
         serverTime: getServerTimeSec(),
-        activities: buildActivityDirectory(activityWindows, season, shop, solarTerms, constellation, qixi, weather, qingMei, charity),
+        activities: buildActivityDirectory(activityWindows, season, shop, solarTerms, constellation),
         season,
         constellation,
         shop,
         solarTerms,
-        qixi,
-        qingMei,
-        charity,
-        weather,
         capabilities: {
             claimPass: actions.claimPass.supported,
             lightConstellation: actions.lightConstellation.supported,
             claimSolar: actions.claimSolar.supported,
             exchange: actions.exchange.supported,
-            qixiBridge: !!qixi,
-            qixiGift: !!qixi,
-            qixiDew: !!qixi,
-            qingMei: !!qingMei,
-            charity: !!charity,
-            charityClaimSeeds: !!charity,
-            charityDonateLove: !!charity,
-            charityClaimDailyGift: !!charity,
-            weatherResearch: !!weather,
         },
         actions,
         errors: {
             season: settledError(seasonResult),
             shop: settledError(shopResult),
             solarTerms: settledError(solarResult),
-            qixi: settledError(qixiResult),
-            qingMei: settledError(qingMeiResult),
-            charity: settledError(charityResult),
-            weather: settledError(weatherResult),
             activities: settledError(activityListResult),
         },
     };
@@ -515,7 +383,7 @@ async function getActivityDirectorySnapshot() {
     const activityWindows = await getActivityWindows();
     return {
         serverTime: getServerTimeSec(),
-        activities: buildActivityDirectory(activityWindows, null, null, null, null, null, null, null),
+        activities: buildActivityDirectory(activityWindows, null, null, null, null),
     };
 }
 
@@ -536,8 +404,6 @@ module.exports = {
     operatePetDiary: petDiaryService.operatePetDiary,
     getPetDiaryRecords: petDiaryService.getPetDiaryRecords,
     getPetDiaryFriend: petDiaryService.getPetDiaryFriend,
-    charityRedFlowerDto,
-    reconcileCharityProgressState,
     buildActivityDirectory,
     getActivityDirectorySnapshot,
     getActivityCenterSnapshot,
@@ -545,34 +411,8 @@ module.exports = {
     getCurrentStellarActivity,
     getCurrentStarSandShop,
     getCurrentSolarTerms,
-    getCurrentQixiActivity,
-    getCurrentCharityRedFlowerActivity,
-    getCurrentWeatherActivity: weatherActivityService.getCurrentWeatherActivity,
-    getWeatherFriends: weatherActivityService.getWeatherFriends,
-    buyWeatherBottle: weatherActivityService.exchangeWeatherCollectorBottle,
-    collectWeatherBottle: weatherActivityService.useWeatherCollectorBottle,
-    lightWeatherResearch: weatherActivityService.advanceWeatherResearch,
-    summonWeatherRain: weatherActivityService.useWeatherSummonBottle,
-    exchangeWeatherCollectorBottle: weatherActivityService.exchangeWeatherCollectorBottle,
-    scanWeatherFriends: weatherActivityService.scanWeatherFriends,
-    useWeatherCollectorBottle: weatherActivityService.useWeatherCollectorBottle,
-    useWeatherSummonBottle: weatherActivityService.useWeatherSummonBottle,
-    useWeatherFrogBottle: weatherActivityService.useWeatherFrogBottle,
-    useWeatherCloudBottle: weatherActivityService.useWeatherCloudBottle,
-    advanceWeatherResearch: weatherActivityService.advanceWeatherResearch,
     claimBattlePassRewards,
     exchangeStarSandGoods,
     lightConstellation,
     claimSolarTerm,
-    getCurrentQingMeiActivity,
-    claimQingMeiDailySeed,
-    startQingMeiBrew,
-    continueQingMeiBrew,
-    settleQingMeiBrew,
-    claimQixiBridgeRewards,
-    giftQixiSachet,
-    claimCharityRedFlowerSeeds,
-    donateCharityRedFlowerLove,
-    claimCharityRedFlowerDailyGift,
-    claimCharityRedFlowerProgressReward,
 };

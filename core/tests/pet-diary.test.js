@@ -302,13 +302,10 @@ test('pet activity is discoverable without loading any season details', () => {
 test('activity directory uses the official pet title without renaming other activities', () => {
     const { buildActivityDirectory } = require('../dist/services/activity-center');
     const windows = ['2026090100', '2026090101', '2026090102', '2026090103'].map(id => ({ id, name: 'S3 萌宠', beginTime: 1, endTime: 2 }));
-    windows.push({ id: '2026070304', name: '天气活动', beginTime: 1, endTime: 2 });
     const directory = buildActivityDirectory(windows, null, null, null, null);
     assert.equal(directory[0].name, '萌宠成长日记');
     assert.equal(directory[0].detailTarget, 'pet');
     assert.equal(directory[0].activityIds.length, 4);
-    assert.equal(directory[1].name, '天气活动');
-    assert.equal(directory[1].detailTarget, 'weather');
 });
 
 test('permanent bichon appears in the pet catalog with the official skill', () => {

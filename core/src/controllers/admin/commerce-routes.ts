@@ -61,13 +61,6 @@ function mountCommerceRoutes(app: Application, ctx: AdminContext): void {
         ctx.provider.operateShareRewardActivity(accountId, req.params.activityId, req.params.action, req.body)
     )));
 
-    app.get('/api/activities/autumn/:key', withAccount((accountId: string, req: Request) => (
-        ctx.provider.getAutumnActivity(accountId, req.params.key)
-    )));
-    app.post('/api/activities/autumn/:key/:action', withAccount((accountId: string, req: Request) => (
-        ctx.provider.operateAutumnActivity(accountId, req.params.key, req.params.action, req.body)
-    )));
-
     app.get('/api/props-shop', withAccount((accountId: string) => ctx.provider.getPropsShop(accountId)));
     app.post('/api/props-shop/purchase', withAccount((accountId: string, req: Request) => (
         ctx.provider.purchaseProps(accountId, req.body?.goodsId, req.body?.count, req.body?.expectedOffer)

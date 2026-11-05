@@ -30,7 +30,6 @@ const {
     getBag,
     getBagItems,
     openFertilizerGiftPacksSilently,
-    openCharitySettlementGiftPacksSilently,
 } = require('../services/warehouse');
 const { checkAndClaimDogSkillGifts } = require('../services/dog-skill-gifts');
 const { isGatewayHealthyForBusiness, nextBusinessBackoffMs } = require('../utils/low-priority-gate');
@@ -150,7 +149,6 @@ async function runDailyRoutines(force: boolean = false): Promise<void> {
     if (!loginReady) return;
     try {
         await checkAndClaimEmails(force);
-        await openCharitySettlementGiftPacksSilently();
         await checkDailyShareStatus(force);
         await performDailyMonthCardGift(force);
         await buyFreeGifts(force);
@@ -295,7 +293,6 @@ async function runFarmTick(auto: any): Promise<void> {
             if (auto.farm) await checkFarm();
             if (auto.task) await checkAndClaimTasks();
             if (auto.activity_task) await checkAndClaimActivityTasks();
-            if (auto.email !== false) await openCharitySettlementGiftPacksSilently();
             if (auto.fertilizer_gift) await openFertilizerGiftPacksSilently();
         });
     } catch {
@@ -1111,12 +1108,6 @@ async function handleApiCall(msg: any): Promise<void> {
             case 'getCurrentSolarTerms':
                 result = await require('../services/activity-center').getCurrentSolarTerms();
                 break;
-            case 'getCurrentQixiActivity':
-                result = await require('../services/activity-center').getCurrentQixiActivity();
-                break;
-            case 'getCurrentCharityRedFlowerActivity':
-                result = await require('../services/activity-center').getCurrentCharityRedFlowerActivity();
-                break;
             case 'getPetDiary':
                 result = await require('../services/activity-center').getPetDiary();
                 break;
@@ -1128,33 +1119,6 @@ async function handleApiCall(msg: any): Promise<void> {
                 break;
             case 'getPetDiaryFriend':
                 result = await require('../services/activity-center').getPetDiaryFriend(args[0]);
-                break;
-            case 'claimCharityRedFlowerSeeds':
-                result = await require('../services/activity-center').claimCharityRedFlowerSeeds();
-                break;
-            case 'donateCharityRedFlowerLove':
-                result = await require('../services/activity-center').donateCharityRedFlowerLove();
-                break;
-            case 'claimCharityRedFlowerDailyGift':
-                result = await require('../services/activity-center').claimCharityRedFlowerDailyGift();
-                break;
-            case 'claimCharityRedFlowerProgressReward':
-                result = await require('../services/activity-center').claimCharityRedFlowerProgressReward(args[0]);
-                break;
-            case 'getCurrentWeatherActivity':
-                result = await require('../services/activity-center').getCurrentWeatherActivity();
-                break;
-            case 'buyWeatherBottle':
-                result = await require('../services/activity-center').buyWeatherBottle(args[0]);
-                break;
-            case 'collectWeatherBottle':
-                result = await require('../services/activity-center').collectWeatherBottle(args[0]);
-                break;
-            case 'lightWeatherResearch':
-                result = await require('../services/activity-center').lightWeatherResearch(args[0]);
-                break;
-            case 'summonWeatherRain':
-                result = await require('../services/activity-center').summonWeatherRain();
                 break;
             case 'claimBattlePassRewards':
                 result = await require('../services/activity-center').claimBattlePassRewards();
@@ -1168,54 +1132,6 @@ async function handleApiCall(msg: any): Promise<void> {
             case 'claimSolarTerm':
                 result = await require('../services/activity-center').claimSolarTerm(String(args[0] || ''));
                 break;
-            case 'getCurrentQingMeiActivity':
-                result = await require('../services/activity-center').getCurrentQingMeiActivity();
-                break;
-            case 'claimQingMeiDailySeed':
-                result = await require('../services/activity-center').claimQingMeiDailySeed();
-                break;
-            case 'startQingMeiBrew':
-                result = await require('../services/activity-center').startQingMeiBrew(args[0]);
-                break;
-            case 'continueQingMeiBrew':
-                result = await require('../services/activity-center').continueQingMeiBrew();
-                break;
-            case 'settleQingMeiBrew':
-                result = await require('../services/activity-center').settleQingMeiBrew();
-                break;
-            case 'claimQixiBridgeRewards':
-                result = await require('../services/activity-center').claimQixiBridgeRewards();
-                break;
-            case 'giftQixiSachet':
-                result = await require('../services/activity-center').giftQixiSachet(args[0], args[1]);
-                break;
-            case 'exchangeWeatherCollectorBottle':
-                result = await require('../services/activity-center').exchangeWeatherCollectorBottle();
-                break;
-            case 'getWeatherFriends':
-                result = await require('../services/activity-center').getWeatherFriends();
-                break;
-            case 'scanWeatherFriends':
-                result = await require('../services/activity-center').scanWeatherFriends(args[0]);
-                break;
-            case 'useWeatherCollectorBottle':
-                result = await require('../services/activity-center').useWeatherCollectorBottle(args[0]);
-                break;
-            case 'useWeatherSummonBottle':
-                result = await require('../services/activity-center').useWeatherSummonBottle();
-                break;
-            case 'useWeatherFrogBottle':
-                result = await require('../services/activity-center').useWeatherFrogBottle(args[0]);
-                break;
-            case 'useWeatherCloudBottle':
-                result = await require('../services/activity-center').useWeatherCloudBottle(args[0], args[1]);
-                break;
-            case 'advanceWeatherResearch':
-                result = await require('../services/activity-center').advanceWeatherResearch(args[0]);
-                break;
-            case 'getAutumnActivity':
-                result = await require('../services/autumn-activities').getAutumnActivity(args[0]);
-                break;
             case 'getMilkTeaActivity':
                 result = await require('../services/milk-tea').getMilkTeaActivity(args[0], args[1]);
                 break;
@@ -1227,9 +1143,6 @@ async function handleApiCall(msg: any): Promise<void> {
                 break;
             case 'operateShareRewardActivity':
                 result = await require('../services/share-reward-activity').operateShareRewardActivity(args[0], args[1], args[2]);
-                break;
-            case 'operateAutumnActivity':
-                result = await require('../services/autumn-activities').operateAutumnActivity(args[0], args[1], args[2]);
                 break;
             case 'getPropsShop':
                 result = await require('../services/commerce').getPropsShop();

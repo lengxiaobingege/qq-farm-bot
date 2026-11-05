@@ -17,7 +17,7 @@ const emit = defineEmits<{
 const accountStore = useAccountStore()
 const activityStore = useActivityCenterStore()
 const { currentAccountId } = storeToRefs(accountStore)
-const { activities, season, shop, solarTerms, constellation, qixi, qingMei, charity, weather, loading, error, loadedAccountId } = storeToRefs(activityStore)
+const { activities, season, shop, solarTerms, constellation, loading, error, loadedAccountId } = storeToRefs(activityStore)
 const { serverNow } = useActivityClock()
 
 type ActivityStatus = 'active' | 'upcoming' | 'ended'
@@ -50,55 +50,6 @@ const displayActivities = computed<ActivityDirectoryItemDto[]>(() => {
     if (!entries.some(item => item.activityIds.some(id => entry.activityIds.includes(id))))
       entries.push(entry)
   }
-  if (qixi.value) {
-    appendDetailEntry({
-      id: qixi.value.groupId || qixi.value.activityId,
-      activityIds: [qixi.value.groupId, qixi.value.bridgeActivityId, qixi.value.giftActivityId].filter(Boolean),
-      name: qixi.value.title,
-      startTime: qixi.value.startTime,
-      endTime: qixi.value.endTime,
-      gameplayKey: 'qixi',
-      gameplayTargets: ['qixi'],
-      detailTarget: 'qixi',
-    })
-  }
-  if (qingMei.value) {
-    appendDetailEntry({
-      id: qingMei.value.activityId,
-      activityIds: [qingMei.value.dailyActivityId, qingMei.value.activityId].filter(Boolean),
-      name: qingMei.value.title,
-      startTime: qingMei.value.startTime,
-      endTime: qingMei.value.endTime,
-      gameplayKey: 'qingmei',
-      gameplayTargets: ['qingmei'],
-      detailTarget: 'qingmei',
-    })
-  }
-  if (charity.value) {
-    appendDetailEntry({
-      id: charity.value.groupId || charity.value.activityId,
-      activityIds: [charity.value.groupId, charity.value.activityId].filter(Boolean),
-      name: charity.value.title,
-      startTime: charity.value.startTime,
-      endTime: charity.value.endTime,
-      gameplayKey: 'charity',
-      gameplayTargets: ['charity'],
-      detailTarget: 'charity',
-    })
-  }
-  if (weather.value) {
-    appendDetailEntry({
-      id: weather.value.groupId || weather.value.activityId,
-      activityIds: [weather.value.groupId, weather.value.catalogActivityId, weather.value.taskActivityId, weather.value.researchActivityId].filter(Boolean),
-      name: weather.value.title,
-      startTime: weather.value.startTime,
-      endTime: weather.value.endTime,
-      gameplayKey: 'weather',
-      gameplayTargets: ['weather'],
-      detailTarget: 'weather',
-    })
-  }
-
   const statusRank: Record<ActivityStatus, number> = { active: 0, upcoming: 1, ended: 2 }
   return entries
     .filter((activity) => activityStatus(activity) !== 'ended')
@@ -222,7 +173,7 @@ function activityIconSrc(activity: ActivityDirectoryItemDto) {
     return '/activity-assets/pet-diary/S3Open_dog_1.png'
   if (activity.gameplayKey === 'milk')
     return '/activity-assets/milk-tea/logo.png'
-  if (activity.gameplayKey === 'wish' || activity.gameplayKey === 'happy')
+  if (activity.gameplayKey === 'happy')
     return `/activity-assets/autumn/${activity.gameplayKey}.png`
   return ''
 }

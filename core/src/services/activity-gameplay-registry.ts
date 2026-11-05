@@ -1,16 +1,12 @@
 export {};
 
-type ActivityDetailTarget = 'travel' | 'constellation' | 'shop' | 'solar' | 'qixi' | 'qingmei' | 'charity' | 'weather' | 'pet' | 'wish' | 'happy' | 'milk';
+type ActivityDetailTarget = 'travel' | 'constellation' | 'shop' | 'solar' | 'pet' | 'happy' | 'milk';
 
 interface ActivityGameplayContext {
     season?: any;
     shop?: any;
     solarTerms?: any;
     constellation?: any;
-    qixi?: any;
-    qingMei?: any;
-    charity?: any;
-    weather?: any;
 }
 
 interface ActivityGameplayAdapter {
@@ -27,8 +23,7 @@ interface ActivityGameplayBinding {
 }
 
 const GAMEPLAY_ADAPTERS: readonly ActivityGameplayAdapter[] = [
-    { gameplayKey: 'wish', detailTarget: 'wish', priority: 1, activityIds: () => ['2026092400', '2026092401'] },
-    { gameplayKey: 'happy', detailTarget: 'happy', priority: 2, activityIds: () => ['2026092500', '2026092501', '2026110104'] },
+    { gameplayKey: 'happy', detailTarget: 'happy', priority: 2, activityIds: () => ['2026110104'] },
     { gameplayKey: 'milk', detailTarget: 'milk', priority: 1, activityIds: () => ['2026110100', '2026110101', '2026110102', '2026110103'] },
     {
         gameplayKey: 'pet',
@@ -67,63 +62,6 @@ const GAMEPLAY_ADAPTERS: readonly ActivityGameplayAdapter[] = [
             ...(Array.isArray(context.solarTerms?.configs)
                 ? context.solarTerms.configs.map((config: any) => config?.activityId)
                 : []),
-        ],
-    },
-    {
-        gameplayKey: 'qixi',
-        detailTarget: 'qixi',
-        priority: 50,
-        activityIds: context => [
-            '2026081800',
-            '2026081801',
-            '2026081802',
-            context.qixi?.groupId,
-            context.qixi?.bridgeActivityId,
-            context.qixi?.giftActivityId,
-        ],
-    },
-    {
-        gameplayKey: 'qingmei',
-        detailTarget: 'qingmei',
-        priority: 60,
-        activityIds: context => [
-            '2026081200',
-            '2026081201',
-            '2026081202',
-            context.qingMei?.dailyActivityId,
-            context.qingMei?.activityId,
-        ],
-    },
-    {
-        gameplayKey: 'charity',
-        detailTarget: 'charity',
-        priority: 70,
-        activityIds: context => [
-            '2026090900',
-            '2026090901',
-            context.charity?.groupId,
-            context.charity?.activityId,
-        ],
-    },
-    {
-        gameplayKey: 'weather',
-        detailTarget: 'weather',
-        priority: 80,
-        activityIds: context => [
-            '2026070300',
-            '2026070301',
-            '2026070302',
-            '2026070303',
-            '2026070304',
-            '2026070305',
-            context.weather?.groupId,
-            context.weather?.shop?.activityId,
-            context.weather?.mutation?.activityId,
-            context.weather?.collector?.activityId,
-            context.weather?.research?.activityId,
-            context.weather?.catalogActivityId,
-            context.weather?.taskActivityId,
-            context.weather?.researchActivityId,
         ],
     },
 ];

@@ -180,66 +180,22 @@ function createDataProvider(options: DataProviderOptions) {
         getCurrentStellarActivity: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentStellarActivity'),
         getCurrentStarSandShop: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentStarSandShop'),
         getCurrentSolarTerms: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentSolarTerms'),
-        getCurrentQixiActivity: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentQixiActivity'),
-        getCurrentCharityRedFlowerActivity: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentCharityRedFlowerActivity'),
         getPetDiary: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getPetDiary'),
         operatePetDiary: (accountRef: string, action: unknown, params: unknown) => callWorkerApi(resolveAccountRefId(accountRef), 'operatePetDiary', action, params),
         getPetDiaryRecords: (accountRef: string, kind: unknown) => callWorkerApi(resolveAccountRefId(accountRef), 'getPetDiaryRecords', kind),
         getPetDiaryFriend: (accountRef: string, gid: unknown) => callWorkerApi(resolveAccountRefId(accountRef), 'getPetDiaryFriend', gid),
-        claimCharityRedFlowerSeeds: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'claimCharityRedFlowerSeeds'),
-        donateCharityRedFlowerLove: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'donateCharityRedFlowerLove'),
-        claimCharityRedFlowerDailyGift: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'claimCharityRedFlowerDailyGift'),
-        claimCharityRedFlowerProgressReward: (accountRef: string, target: unknown) => callWorkerApi(resolveAccountRefId(accountRef), 'claimCharityRedFlowerProgressReward', target),
-        getCurrentWeatherActivity: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentWeatherActivity'),
-        buyWeatherBottle: (accountRef: string, count: unknown) => callWorkerApi(resolveAccountRefId(accountRef), 'buyWeatherBottle', count),
-        collectWeatherBottle: (accountRef: string, targetGid: unknown) => callWorkerApi(resolveAccountRefId(accountRef), 'collectWeatherBottle', targetGid),
-        lightWeatherResearch: (accountRef: string, nodeId: unknown) => callWorkerApi(resolveAccountRefId(accountRef), 'lightWeatherResearch', nodeId),
-        summonWeatherRain: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'summonWeatherRain'),
         claimBattlePassRewards: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'claimBattlePassRewards'),
         exchangeStarSandGoods: (accountRef: string, goodsId: unknown, count: unknown) => (
             callWorkerApi(resolveAccountRefId(accountRef), 'exchangeStarSandGoods', goodsId, count)
         ),
         lightConstellation: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'lightConstellation'),
         claimSolarTerm: (accountRef: string, termId: string) => callWorkerApi(resolveAccountRefId(accountRef), 'claimSolarTerm', termId),
-        getCurrentQingMeiActivity: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentQingMeiActivity'),
-        claimQingMeiDailySeed: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'claimQingMeiDailySeed'),
-        startQingMeiBrew: (accountRef: string, ingredients: unknown) => callWorkerApi(resolveAccountRefId(accountRef), 'startQingMeiBrew', ingredients),
-        continueQingMeiBrew: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'continueQingMeiBrew'),
-        settleQingMeiBrew: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'settleQingMeiBrew'),
-        claimQixiBridgeRewards: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'claimQixiBridgeRewards'),
-        giftQixiSachet: (accountRef: string, friendGid: unknown, messageTextId: unknown = 15) => (
-            callWorkerApi(resolveAccountRefId(accountRef), 'giftQixiSachet', friendGid, messageTextId)
-        ),
-        exchangeWeatherCollectorBottle: (accountRef: string) => (
-            callWorkerApi(resolveAccountRefId(accountRef), 'exchangeWeatherCollectorBottle')
-        ),
-        getWeatherFriends: (accountRef: string) => (
-            callWorkerApi(resolveAccountRefId(accountRef), 'getWeatherFriends')
-        ),
-        scanWeatherFriends: (accountRef: string, friendGids: unknown) => (
-            callWorkerApi(resolveAccountRefId(accountRef), 'scanWeatherFriends', friendGids)
-        ),
-        useWeatherCollectorBottle: (accountRef: string, friendGid: unknown) => (
-            callWorkerApi(resolveAccountRefId(accountRef), 'useWeatherCollectorBottle', friendGid)
-        ),
-        useWeatherSummonBottle: (accountRef: string) => (
-            callWorkerApi(resolveAccountRefId(accountRef), 'useWeatherSummonBottle')
-        ),
-        useWeatherFrogBottle: (accountRef: string, friendGid: unknown) => (
-            callWorkerApi(resolveAccountRefId(accountRef), 'useWeatherFrogBottle', friendGid)
-        ),
-        useWeatherCloudBottle: (accountRef: string, friendGid: unknown, landId: unknown) => (
-            callWorkerApi(resolveAccountRefId(accountRef), 'useWeatherCloudBottle', friendGid, landId)
-        ),
-        advanceWeatherResearch: (accountRef: string, nodeId: unknown) => (
-            callWorkerApi(resolveAccountRefId(accountRef), 'advanceWeatherResearch', nodeId)
-        ),
+
+
         getMilkTeaActivity: (accountRef: string, page: string, input: any) => callWorkerApi(resolveAccountRefId(accountRef), 'getMilkTeaActivity', page, input),
         operateMilkTeaActivity: (accountRef: string, action: string, input: any) => callWorkerApi(resolveAccountRefId(accountRef), 'operateMilkTeaActivity', action, input),
         getShareRewardActivity: (accountRef: string, activityId: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getShareRewardActivity', activityId),
         operateShareRewardActivity: (accountRef: string, activityId: string, action: string, input: any) => callWorkerApi(resolveAccountRefId(accountRef), 'operateShareRewardActivity', activityId, action, input),
-        getAutumnActivity: (accountRef: string, key: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getAutumnActivity', key),
-        operateAutumnActivity: (accountRef: string, key: string, action: string, input: unknown) => callWorkerApi(resolveAccountRefId(accountRef), 'operateAutumnActivity', key, action, input),
         getPropsShop: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getPropsShop'),
         purchaseProps: (accountRef: string, goodsId: unknown, count: unknown, expectedOffer: unknown) => (
             callWorkerApi(resolveAccountRefId(accountRef), 'purchaseProps', goodsId, count, expectedOffer)
