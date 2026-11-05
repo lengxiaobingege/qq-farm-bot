@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import api, { getApiErrorMessage } from '@/api'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -17,6 +17,8 @@ const password = ref('')
 const confirmPassword = ref('')
 const needsSetup = ref(false)
 const setupChecking = ref(true)
+const generatedPassword = ref('')
+const copied = ref(false)
 const error = ref('')
 const success = ref('')
 const loading = ref(false)
@@ -34,6 +36,60 @@ const usernameValid = computed(() => {
   if (!/^\w+$/.test(name))
     return { valid: false, message: '只能包含字母、数字、下划线' }
   return { valid: true, message: '' }
+})
+
+function randomInt(max: number): number {
+  const buf = new Uint32Array(1)
+  const limit = Math.floor(0x100000000 / max) * max
+  do {
+    crypto.getRandomValues(buf)
+  } while (buf[0] >= limit)
+  return buf[0] % max
+}
+
+function generateRandomPassword(): void {
+  const groups = [
+    'ABCDEFGHJKLMNPQRSTUVWXYZ',
+    'abcdefghijkmnpqrstuvwxyz',
+    '23456789',
+    '#%^*+?!-_=',
+  ]
+  const chars: string[] = groups.map(g => g[randomInt(g.length)])
+  const all = groups.join('')
+  while (chars.length < 16)
+    chars.push(all[randomInt(all.length)])
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1)
+    ;[chars[i], chars[j]] = [chars[j], chars[i]]
+  }
+  const value = chars.join('')
+  password.value = value
+  confirmPassword.value = value
+  generatedPassword.value = value
+  copied.value = false
+  error.value = ''
+}
+
+async function copyGeneratedPassword(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(generatedPassword.value)
+    copied.value = true
+  }
+  catch {
+    error.value = '复制失败，请手动选中密码复制'
+  }
+}
+
+function clearGeneratedPassword(): void {
+  if (generatedPassword.value) {
+    generatedPassword.value = ''
+    copied.value = false
+  }
+}
+
+watch([password, confirmPassword], ([pwd, confirm]) => {
+  if (generatedPassword.value && (pwd !== generatedPassword.value || confirm !== generatedPassword.value))
+    clearGeneratedPassword()
 })
 
 function validateForm(): boolean {
@@ -216,6 +272,15 @@ onMounted(() => {
             <span class="i-carbon-locked" />
             {{ needsSetup ? '设置密码' : '密码' }}
           </label>
+          <div v-if="needsSetup" class="generate-row">
+            <BaseButton variant="outline" size="sm" type="button" @click="generateRandomPassword">
+              <span class="inline-flex items-center gap-1">
+                <span class="i-carbon-renew" />
+                生成随机密码
+              </span>
+            </BaseButton>
+            <span class="generate-hint">16 位，含大小写字母、数字、特殊符号</span>
+          </div>
           <BaseInput
             id="password"
             v-model="password"
@@ -242,6 +307,21 @@ onMounted(() => {
             autocomplete="new-password"
             required
           />
+        </div>
+
+        <div v-if="generatedPassword" class="generated-box">
+          <div class="generated-label">
+            已生成，请立即保存（仅此一次显示）
+          </div>
+          <div class="generated-value">
+            <code>{{ generatedPassword }}</code>
+            <BaseButton variant="text" size="sm" type="button" @click="copyGeneratedPassword">
+              <span class="inline-flex items-center gap-1">
+                <span :class="copied ? 'i-carbon-checkmark' : 'i-carbon-copy'" />
+                {{ copied ? '已复制' : '复制' }}
+              </span>
+            </BaseButton>
+          </div>
         </div>
 
         <div v-if="error" class="message error-message" role="alert">
@@ -401,6 +481,48 @@ onMounted(() => {
 .form-hint:not(.error) {
   color: var(--ui-muted);
   line-height: 1.5;
+}
+
+.generate-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.generate-hint {
+  color: var(--ui-subtle);
+  font-size: 11px;
+}
+
+.generated-box {
+  padding: 10px 12px;
+  border: 1px solid rgba(67, 141, 99, 0.28);
+  border-radius: 10px;
+  background: var(--ui-primary-soft);
+}
+
+.generated-label {
+  margin-bottom: 6px;
+  color: var(--ui-primary);
+  font-size: 11px;
+  font-weight: var(--fw-600);
+}
+
+.generated-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.generated-value code {
+  color: var(--ui-ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  user-select: all;
+  word-break: break-all;
 }
 
 .message {
