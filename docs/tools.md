@@ -1,6 +1,8 @@
 # 工具脚本
 
-`tools/` 收录游戏配置、图片下载和协议抓包分析脚本。下载脚本只使用 Node.js 内置模块；协议分析脚本还会复用 `core` 的依赖、协议定义和已编译模块。
+## 概述
+
+本文档介绍 `tools/` 目录下的游戏配置下载、图片下载和协议抓包分析脚本，说明各脚本的用途、参数、输出边界与常见错误处理方式。本文面向协议维护者和需要更新游戏配置、图片资源的开发人员。下载脚本只使用 Node.js 内置模块；协议分析脚本还会复用 `core` 的依赖、协议定义和已编译模块。
 
 ## 脚本索引
 
@@ -29,32 +31,42 @@
 
 工具完全独立于 `core` 和 `web`，只使用 Node.js 内置模块，不参与 bot 的构建或运行。
 
-### 使用方法
+### 前置条件
 
-在仓库根目录运行：
+- 已安装 Node.js（脚本只依赖内置模块）。
+- 拥有微信小程序的反编译源码目录，其下存在 `src/settings.*.json`。
+- 可访问微信小程序当前 CDN。
 
-```bash
-node tools/download-game-config.js
-```
+### 操作步骤
 
-脚本内置默认参数如下，其中反编译源码路径仅适用于原开发环境，其他环境建议显式传入：
+1. 在仓库根目录运行：
 
-- 反编译源码：脚本内置的原开发环境路径，建议通过 `--source` 覆盖
-- 输出目录：`tools/json`
+   ```bash
+   node tools/download-game-config.js
+   ```
 
-也可以显式指定路径：
+2. 脚本内置默认参数如下，其中反编译源码路径仅适用于原开发环境，其他环境建议显式传入：
 
-```bash
-node tools/download-game-config.js \
-  --source "D:\path\to\wx-mini-program-source" \
-  --output "D:\path\to\game-config-output"
-```
+   - 反编译源码：脚本内置的原开发环境路径，建议通过 `--source` 覆盖
+   - 输出目录：`tools/json`
 
-查看参数说明：
+3. 也可以显式指定路径：
 
-```bash
-node tools/download-game-config.js --help
-```
+   ```bash
+   node tools/download-game-config.js \
+     --source "D:\path\to\wx-mini-program-source" \
+     --output "D:\path\to\game-config-output"
+   ```
+
+4. 查看参数说明：
+
+   ```bash
+   node tools/download-game-config.js --help
+   ```
+
+### 结果验证
+
+工具成功时会输出每个资源的 URL、UUID、hash、条目数及最终目录，可据此核对 CDN 版本。
 
 ### 输出边界
 
@@ -85,49 +97,67 @@ tools/json/allconfig/<其他配置名>.json
 
 ### 常见错误
 
-- **找不到 settings 文件**：确认 `--source` 指向反编译源码根目录，并且其下存在 `src/settings.*.json`。
-- **manifest 中找不到资源**：小程序可能调整了 bundle 或资源路径，需要重新核对反编译源码。
-- **Base64、UTF-8 或 JSON 解码失败**：上游可能更换了配置保护方式或密钥。
-- **Plant 引用不存在**：CDN 配置可能版本不一致，工具会拒绝写出半成品。
-- **Land 坐标无效或重复**：土地网格配置不完整，工具会拒绝替换旧文件。
-- **请求超时或 HTTP 错误**：检查网络和 CDN 可访问性后重试。
-
-工具成功时会输出每个资源的 URL、UUID、hash、条目数及最终目录，方便核对 CDN 版本。
+| 错误现象 | 处理方式 |
+| --- | --- |
+| 找不到 settings 文件 | 确认 `--source` 指向反编译源码根目录，并且其下存在 `src/settings.*.json`。 |
+| manifest 中找不到资源 | 小程序可能调整了 bundle 或资源路径，需要重新核对反编译源码。 |
+| Base64、UTF-8 或 JSON 解码失败 | 上游可能更换了配置保护方式或密钥。 |
+| Plant 引用不存在 | CDN 配置可能版本不一致，工具会拒绝写出半成品。 |
+| Land 坐标无效或重复 | 土地网格配置不完整，工具会拒绝替换旧文件。 |
+| 请求超时或 HTTP 错误 | 检查网络和 CDN 可访问性后重试。 |
 
 ## 游戏图片下载
 
 `download-game-images.js` 读取 `ItemInfo.json` 和 `Plant.json`，从小程序当前 CDN 精确定位图片，并按配置 ID 保存为 `<id>.png`。
 
-### 使用方法
+### 前置条件
 
-```bash
-node tools/download-game-images.js
-```
+- 已完成游戏配置下载（`tools/json` 目录中存在 `ItemInfo.json` 和 `Plant.json`）。
+- 已安装 Node.js（脚本只依赖内置模块）。
 
-脚本内置默认参数如下，其中反编译源码路径仅适用于原开发环境，其他环境建议显式传入：
+### 操作步骤
 
-- JSON 输入目录：`tools/json`
-- 图片输出目录：`tools/img`
-- 反编译源码：脚本内置的原开发环境路径，建议通过 `--source` 覆盖
-- 下载并发：8
-- 可重试次数：3
+1. 在仓库根目录运行：
 
-完整参数示例：
+   ```bash
+   node tools/download-game-images.js
+   ```
 
-```bash
-node tools/download-game-images.js \
-  --input "D:\path\to\game-json" \
-  --output "D:\path\to\game-images" \
-  --source "D:\path\to\wx-mini-program-source" \
-  --concurrency 8 \
-  --retries 3
-```
+2. 脚本内置默认参数如下，其中反编译源码路径仅适用于原开发环境，其他环境建议显式传入：
 
-查看帮助：
+   - JSON 输入目录：`tools/json`
+   - 图片输出目录：`tools/img`
+   - 反编译源码：脚本内置的原开发环境路径，建议通过 `--source` 覆盖
+   - 下载并发：8
+   - 可重试次数：3
 
-```bash
-node tools/download-game-images.js --help
-```
+3. 完整参数示例：
+
+   ```bash
+   node tools/download-game-images.js \
+     --input "D:\path\to\game-json" \
+     --output "D:\path\to\game-images" \
+     --source "D:\path\to\wx-mini-program-source" \
+     --concurrency 8 \
+     --retries 3
+   ```
+
+4. 查看帮助：
+
+   ```bash
+   node tools/download-game-images.js --help
+   ```
+
+### 结果验证
+
+部分 Item 配置指向的资源可能已不在当前 remote bundle manifest 中。对于这类 ID：
+
+- 不生成错误图片；
+- 继续下载其他能够唯一、准确映射的图片；
+- 在 `download-images-report.json` 中记录失败原因和 ID；
+- 进程以非零状态结束，并显示“部分完成”。
+
+报告会记录每个 ID 的 JSON 字段来源、manifest path、声明 bundle、redirect 链、最终 owner bundle、UUID、hash、CDN URL、PNG 尺寸、SHA-256 和输出状态，可据此核对下载结果。
 
 ### 图片映射规则
 
@@ -139,17 +169,6 @@ node tools/download-game-images.js --help
 - Item 与 Plant 都使用各自的 ID 作为输出文件名，例如 `20002.png`、`40002.png`、`1020002.png`。
 
 工具会解析 Cocos bundle 的 `redirect`、`deps`、UUID 和 `versions.native`，不会根据 ID 猜 URL，不会模糊匹配，也不会用相似图片或占位图兜底。
-
-### 准确性与部分完成
-
-部分 Item 配置指向的资源可能已不在当前 remote bundle manifest 中。对于这类 ID：
-
-- 不生成错误图片；
-- 继续下载其他能够唯一、准确映射的图片；
-- 在 `download-images-report.json` 中记录失败原因和 ID；
-- 进程以非零状态结束，并显示“部分完成”。
-
-报告会记录每个 ID 的 JSON 字段来源、manifest path、声明 bundle、redirect 链、最终 owner bundle、UUID、hash、CDN URL、PNG 尺寸、SHA-256 和输出状态。
 
 ### 文件安全
 
@@ -164,6 +183,8 @@ node tools/download-game-images.js --help
 工具不会删除输出目录中已有的额外图片。
 
 ## 协议抓包分析
+
+### 前置条件
 
 这些脚本需要先安装工作区依赖并编译后端，因为它们会加载 `protobufjs` 和 TSDK 运行时：
 
@@ -204,4 +225,4 @@ pnpm -C core exec node ../tools/audit-qingmei-flow.js "D:\path\to\captures" "ws_
 
 脚本按文件顺序输出青梅酿酒和分享流程的关键请求、响应、错误码、活动轮次及未知字段，适合对照一次完整操作链路。
 
-> 抓包可能包含账号凭据、网关 Token 和游戏数据。分析前应保存副本，输出或提交日志前应先清理敏感信息。
+**注意事项：** 抓包可能包含账号凭据、网关 Token 和游戏数据。分析前应保存副本，输出或提交日志前应先清理敏感信息。

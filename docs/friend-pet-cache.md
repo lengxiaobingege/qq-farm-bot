@@ -1,20 +1,18 @@
 # 好友宠物缓存与每日同步
 
+## 概述
+
+本文档说明好友宠物缓存的设计与每日同步机制，包括缓存结构、同步节奏、让路门控和帮忙链路的行为变化。适用读者为需要理解或调整好友帮忙、宠物探测相关逻辑的开发者。
+
 ## 背景
 
 好友帮忙有两个相关开关：`friend_help_exp_limit`（帮忙经验满就不再帮）和 `friend_help_protect_dog_ignore_exp_limit`（挂着护主犬的好友即使经验满也继续帮，为的是「同气连枝」礼包）。护主犬是 `dog_id = 90021`。
 
-护主犬只能从 `VisitService.Enter` 回包的 `brief_dog_info.dog_id`（`visitpb.proto` 的 field 3）读到，没有单独的「好友宠物列表」协议。所以早期实现里，帮忙经验一满，每轮好友巡检（20~25 秒一轮）都会把全部待帮好友逐个 `Enter` + `Leave` 试探一遍，而且和农场主流程抢同一批并发槽位，会实打实挤压主流程。现在这些结论落到缓存里，每天只确认一轮，探测请求也降到最低的 `background` 班次。
+护主犬只能从 `VisitService.Enter` 回包的 `brief_dog_info.dog_id`（`visitpb.proto` 的 field 3）读到，没有单独的「好友宠物列表」协议。早期实现里，帮忙经验一满，每轮好友巡检（20~25 秒一轮）都会把全部待帮好友逐个 `Enter` + `Leave` 试探一遍，而且和农场主流程抢同一批并发槽位，会实打实挤压主流程。现在这些结论落到缓存里，每天只确认一轮，探测请求也降到最低的 `background` 班次。
 
-## 数据来源与写入点
+## 核心概念
 
-唯一数据源仍然是 `Enter` 回包。`core/src/services/friend/api.ts` 的 `enterFriendFarm` 在拿到回包后统一调用 `recordFriendDogFromEnterReply()`，这是全仓库唯一的 write-through 入口，因此偷菜、帮忙、捣乱、天气扫描、面板手动操作、互动道具——任何进好友农场的动作都会顺手更新缓存，零额外 RPC。它同时是自愈路径：好友中途换狗或狗粮吃完，下一次进他农场就会纠正。
-
-服务端在好友没有上场狗时不下发 `brief_dog_info`，缺省按 `dogId = 0` 记，这也是一个有效结论。
-
-`GetDogInfo{host_gid}` 只需 1 个 RPC 并且能带回 `skill_usages`，理论上比 `Enter` + `Leave` 更省，但仓库里没有好友维度的抓包证据，所以没有采用；如果以后补到抓包，探测协议可以在 `pet-sync.ts` 的 `probeFriendDog()` 里单点替换。
-
-## 缓存结构与新鲜度
+### 三态缓存
 
 `core/src/services/friend/pet-cache.ts` 维护三态：
 
@@ -24,13 +22,38 @@
 
 新鲜度按 `getSystemDateKey()` 的系统日期判定，不做小时级 TTL：好友随时可能换狗或狗粮吃完，跨日的记录一律视为未知，由每日同步重新确认。跨日记录在文件加载时和运行期（`dropStaleEntries()`）都会被丢掉，所以文件不会无限增长。
 
+### 数据来源与写入点
+
+唯一数据源仍然是 `Enter` 回包。`core/src/services/friend/api.ts` 的 `enterFriendFarm` 在拿到回包后统一调用 `recordFriendDogFromEnterReply()`，这是全仓库唯一的 write-through 入口，因此偷菜、帮忙、捣乱、天气扫描、面板手动操作、互动道具——任何进好友农场的动作都会顺手更新缓存，零额外 RPC。它同时是自愈路径：好友中途换狗或狗粮吃完，下一次进他农场就会纠正。
+
+服务端在好友没有上场狗时不下发 `brief_dog_info`，缺省按 `dogId = 0` 记，这也是一个有效结论。
+
+`GetDogInfo{host_gid}` 只需 1 个 RPC 并且能带回 `skill_usages`，理论上比 `Enter` + `Leave` 更省，但仓库里没有好友维度的抓包证据，所以没有采用；如果以后补到抓包，探测协议可以在 `pet-sync.ts` 的 `probeFriendDog()` 里单点替换。
+
+### 落盘
+
 落盘文件是 `core/data/friend-pet-<sha256(accountId)>.json`，按账号隔离，由 worker 进程直接 `writeJsonFileAtomic` 写，不走 IPC——和 `friend-bad-state-<hash>.json` 一个模式。写盘有 2 秒防抖（`FLUSH_DEBOUNCE_MS`），并且只在结论变化或首次确认时才排队，同一天内重复进同一个好友农场不会反复落盘。`stopFriendCheckLoop` 里会 `flushFriendPetCacheNow()`，避免停机丢掉当天已确认的结论。
 
-## 每日同步的节奏参数
+## 每日同步
 
-`core/src/services/friend/pet-sync.ts` 负责补齐当天仍是 `unknown` 的好友，是唯一为了拿宠物信息而额外发 RPC 的地方。探测请求走 `background` 班次（配对的 `Leave` 提到 `friend` 班次，见下）。
+### 前置条件
 
-固定不变的是**瞬时速率**：批内每两位好友之间硬等 2 秒，一位好友两个 RPC，约 0.9 RPC/s。会变的是**轮次配额和轮间间隔**，跟着连接状态自适应（见下一节）。
+`runFriendPetSync()` 依次检查，任一不满足就跳过并返回原因：
+
+1. `friend` 自动化未开 → `friend_off`
+2. `friend_help` 未开 → `friend_help_off`
+3. `friend_help_protect_dog_ignore_exp_limit` 未开 → `protect_dog_bypass_off`
+4. 当天已完成整轮 → `done_today`
+5. 好友安静时段（`inFriendQuietHours()`）→ `quiet_hours`
+6. 未登录 → `not_logged_in`
+
+第 3 条是刻意的：护主犬开关关闭时这份数据没有消费方，一个额外 RPC 都不该花。但 `Enter` 回包的顺手写入不受任何开关影响，所以开关重新打开时已经有一部分结论可用，同步只需补剩下的。
+
+### 操作步骤
+
+`core/src/services/friend/pet-sync.ts` 负责补齐当天仍是 `unknown` 的好友，是唯一为了拿宠物信息而额外发 RPC 的地方。探测请求走 `background` 班次（配对的 `Leave` 提到 `friend` 班次，见下文「Enter / Leave 必须配对」）。
+
+节奏参数如下：
 
 | 参数 | 值 | 含义 |
 | --- | --- | --- |
@@ -49,11 +72,9 @@
 | `FRIEND_TASK_POLL_MS` | `250` | 让路等待的轮询间隔 |
 | `GATEWAY_IDLE_WAIT_MAX_MS` | `8000` | 进每位好友前等网关空闲的最长等待，等不到就整轮让路 |
 
-满配额一轮是 25 位好友 × (`Enter` + `Leave`)、约 70 秒，加上 3 分钟轮间间隔，平均 0.2 RPC/s——和早期「每 10 分钟 10 位」的平均速率同一量级，但占空比高得多：健康连接上 200 位好友半小时左右补齐，而不是磨几个小时。
+固定不变的是**瞬时速率**：批内每两位好友之间硬等 2 秒，一位好友两个 RPC，约 0.9 RPC/s。会变的是**轮次配额和轮间间隔**，跟着连接状态自适应（见下文）。
 
-### 轮次节奏怎么自适应
-
-`planNextSyncPacing()`（纯函数，有单测）根据本轮结果决定下一轮什么时候来、探几位：
+轮次节奏由 `planNextSyncPacing()`（纯函数，有单测）根据本轮结果决定：
 
 | 本轮结果 | 下一轮间隔 | 配额 |
 | --- | --- | --- |
@@ -65,9 +86,20 @@
 
 「锁死上调」意味着当天只往上探一次限制，撞到之后就老实按基线跑，跨日（`getSystemDateKey()` 变化）才重新开始爬。轮次链是自我续期的一次性定时器（`scheduleNextSyncRound()`）而不是固定 `interval`，间隔才能跟着状态变；`stopFriendPetSyncTimer()` 会同时清掉配额、锁和冷却，重连后从基线重新开始。
 
-### 为什么必须这么慢
+启动延迟 90 秒是为了让登录启动序列（每日礼包 → 任务，串行执行，见 [网络并发模型](network-concurrency.md)）先跑完；宠物同步自身也会进入自动任务全局互斥队列。基线间隔的巡检同时兼顾四种情况——开关中途打开、让路后补扫、配额分轮推进、跨日重新开始。这些常量以 `FRIEND_PET_SYNC_TUNING` 导出，便于测试和排查时读取。
 
-早期版本一轮就把当天所有未确认好友（60~200 位）连着探完，约 3 RPC/s。生产上出现两次同一形态的掉线：同步跑到 60~75 位之后，服务端对**所有**请求彻底静默——`AllLands` / `Bag` / `AntiData` / `Heartbeat` 全部挂在 `stage=pending` 十几秒、连接再没有任何入站数据，最后心跳三连失败、账号下线。
+### 结果验证
+
+- 同步开始：`event: '好友宠物同步', result: 'start'`，带 `pending`
+- 同步结束：`result: 'ok' | 'deferred'`，带 `checked` / `failed` / `deferred` / `known` / `protect`
+- 批量帮助的缓存过滤：`event: 'protect_dog_cache_filtered'`
+- `getFriendPetCacheStats()` 返回 `{ date, known, protect, fullSyncDone }`，排查时可直接读
+
+满配额一轮是 25 位好友 × (`Enter` + `Leave`)、约 70 秒，加上 3 分钟轮间间隔，平均 0.2 RPC/s——和早期「每 10 分钟 10 位」的平均速率同一量级，但占空比高得多：健康连接上 200 位好友半小时左右补齐，而不是磨几个小时。
+
+**注意事项**：
+
+**早期版本一轮就把当天所有未确认好友（60~200 位）连着探完，约 3 RPC/s，生产上出现两次同一形态的掉线：同步跑到 60~75 位之后，服务端对所有请求彻底静默——`AllLands` / `Bag` / `AntiData` / `Heartbeat` 全部挂在 `stage=pending` 十几秒、连接再没有任何入站数据，最后心跳三连失败、账号下线。请勿调高瞬时速率或配额。**
 
 ```
 好友宠物同步完成：确认 75，失败 0，待补 129（让路原因：网关繁忙）
@@ -75,13 +107,13 @@ AntiData 上报失败: 请求超时: AntiData (stage=pending, pending=3, queued=
 心跳未响应 (miss=3/3, heartbeat=95s, inbound=78s...)
 ```
 
-注意静默是**服务端**给的：请求已经发出去（`stage=pending`、`queued=0`），只是没有回包。所以这不是客户端排队能解决的问题，只能把进出好友农场的突发量压下去。没有抓包能证明具体是哪条限制（速率、配额还是反外挂判定），因此瞬时速率取的是保守值，配额上调也设计成「当天只探一次上限，撞到就退回基线」；如果还出现同形态掉线，下一步就是降 `SYNC_MAX_PER_ROUND_CAP` / 拉长 `SYNC_FAST_INTERVAL_MS`，或者干脆关掉 `friend_help_protect_dog_ignore_exp_limit`（同步随之停发所有额外 RPC）。
-
-启动延迟 90 秒是为了让登录启动序列（每日礼包 → 任务，串行执行，见 [网络并发模型](network-concurrency.md)）先跑完；宠物同步自身也会进入自动任务全局互斥队列。基线间隔的巡检同时兼顾四种情况——开关中途打开、让路后补扫、配额分轮推进、跨日重新开始。这些常量以 `FRIEND_PET_SYNC_TUNING` 导出，便于测试和排查时读取。
+静默是**服务端**给的：请求已经发出去（`stage=pending`、`queued=0`），只是没有回包。所以这不是客户端排队能解决的问题，只能把进出好友农场的突发量压下去。没有抓包能证明具体是哪条限制（速率、配额还是反外挂判定），因此瞬时速率取的是保守值，配额上调也设计成「当天只探一次上限，撞到就退回基线」；如果还出现同形态掉线，下一步就是降 `SYNC_MAX_PER_ROUND_CAP` / 拉长 `SYNC_FAST_INTERVAL_MS`，或者干脆关掉 `friend_help_protect_dog_ignore_exp_limit`（同步随之停发所有额外 RPC）。
 
 ## 让路门控
 
 好友任务的优先级高于宠物同步，门控是单向的：同步让位好友巡检，好友巡检不会等同步。
+
+### 好友巡检门控
 
 进入每一位好友之前，`waitForFriendTaskIdle()` 会轮询 `scheduler.isFriendCheckRunning()`（对应 `isCheckingFriends`），最多等 `FRIEND_TASK_WAIT_MAX_MS = 10000` 毫秒、每 `FRIEND_TASK_POLL_MS = 250` 毫秒一次。等不到空闲就立刻中断本轮，把剩下的好友计入 `deferred` 留给下一次定时检查，不会逐批硬碰。同一处还会重新核对开关，运行中被关掉也会当场停下。
 
@@ -103,22 +135,9 @@ AntiData 上报失败: 请求超时: AntiData (stage=pending, pending=3, queued=
 
 只有 `deferred === 0`（真正跑完整轮）才 `markFullSyncDone()`，否则下一次定时检查继续补剩下的。已经在当天有结论的好友由 `collectPendingFriends()` 提前过滤掉，黑名单和失效好友（`getInvalidKnownFriendGidSet()`）同样不进名单。进农场失败时复用现成的 `handleFriendEnterError()`，封禁加黑和失效好友清理逻辑不重复实现。
 
-## 开关门控顺序
-
-`runFriendPetSync()` 依次检查，任一不满足就跳过并返回原因：
-
-1. `friend` 自动化未开 → `friend_off`
-2. `friend_help` 未开 → `friend_help_off`
-3. `friend_help_protect_dog_ignore_exp_limit` 未开 → `protect_dog_bypass_off`
-4. 当天已完成整轮 → `done_today`
-5. 好友安静时段（`inFriendQuietHours()`）→ `quiet_hours`
-6. 未登录 → `not_logged_in`
-
-第 3 条是刻意的：护主犬开关关闭时这份数据没有消费方，一个额外 RPC 都不该花。但 `Enter` 回包的顺手写入不受任何开关影响，所以开关重新打开时已经有一部分结论可用，同步只需补剩下的。
-
 ## 帮忙链路的行为变化
 
-好友巡查已经合并成「每位好友只进一次农场」（见下），经验满时的过滤发生在**进农场之前**：`visit-plan.ts` 的 `buildFriendVisitPlan()` 只把当天缓存已确认是 `protect` 的好友标上 `wantHelp`，`none` 和 `unknown` 一律不帮；如果这位好友同时也没有可偷、也不是捣乱对象，那这一轮对他一个请求都不发。`visit-strategy.ts` 的 `visitFriend()` 里还有同一道闸门兜底（经验在一轮中途满掉的情况）。被跳过的好友汇总成一条 `protect_dog_cache_filtered` 日志，避免每轮刷几十条跳过日志。
+好友巡查已经合并成「每位好友只进一次农场」（见下文），经验满时的过滤发生在**进农场之前**：`visit-plan.ts` 的 `buildFriendVisitPlan()` 只把当天缓存已确认是 `protect` 的好友标上 `wantHelp`，`none` 和 `unknown` 一律不帮；如果这位好友同时也没有可偷、也不是捣乱对象，那这一轮对他一个请求都不发。`visit-strategy.ts` 的 `visitFriend()` 里还有同一道闸门兜底（经验在一轮中途满掉的情况）。被跳过的好友汇总成一条 `protect_dog_cache_filtered` 日志，避免每轮刷几十条跳过日志。
 
 净效果：经验满之后，每轮巡检的好友农场进出次数从「全部待帮好友」降到「当天确认挂着护主犬的好友」，探测成本从每轮一次变成每天一次，且探测走 `background` 班次。
 
@@ -136,12 +155,7 @@ AntiData 上报失败: 请求超时: AntiData (stage=pending, pending=3, queued=
 
 捣乱对象仍然只从「既没可偷也没可帮」的好友里按等级降序取前 `MAX_BAD_ONLY_VISITS_PER_ROUND = 20` 位——不在偷 / 帮的访问里顺手放草放虫，免得每日捣乱额度花在错误的好友身上。
 
-## 观测
-
-- 同步开始：`event: '好友宠物同步', result: 'start'`，带 `pending`
-- 同步结束：`result: 'ok' | 'deferred'`，带 `checked` / `failed` / `deferred` / `known` / `protect`
-- 批量帮助的缓存过滤：`event: 'protect_dog_cache_filtered'`
-- `getFriendPetCacheStats()` 返回 `{ date, known, protect, fullSyncDone }`，排查时可直接读
+## 缓存在前端的使用
 
 缓存也直接喂给好友页面：`getFriendsList` / `getFriendsListCacheOnly` 在返回前用 `buildFriendPetView()` 附加 `petState`（`protect` / `other` / `none` / `unknown`）和 `pet: { id, name, image } | null`，名称与图标用本地物品配置查（`getItemById` / `getItemImageById`），零额外 RPC。宠物结论随时会被 `Enter` 回包刷新，所以不写进好友列表缓存，只在返回时附加。前端 `web/src/views/Friends.vue` 把它渲染成一枚徽标：护主犬高亮、其他狗显示宠物名、当天确认没有上场狗显示“无宠物”、当天还没确认显示“宠物待确认”。
 

@@ -1,6 +1,8 @@
 # 网络并发模型：请求班次与优先级分层
 
-Gateway 是一条 WebSocket 长连接，所有业务共用它。这份文档说明请求怎么排队、谁能插队、谁必须让路。
+## 概述
+
+本文档说明 Gateway 网络并发模型的设计与实现：请求如何按班次排队、如何分层调度、后台任务如何让路、定时任务如何退避。本文面向协议维护者和核心模块开发人员。Gateway 是一条 WebSocket 长连接，所有业务共用它。
 
 实现分三块：
 
@@ -8,7 +10,7 @@ Gateway 是一条 WebSocket 长连接，所有业务共用它。这份文档说�
 - `core/src/utils/request-context.ts` — `AsyncLocalStorage`：给「任务入口」打班次标记，任务内部发的请求自动继承。
 - `core/src/utils/network.ts` — 排队与发送：`sendMsgAsync()` 解析班次、`takeDispatchableRequest()` 委托策略函数选下一个请求。
 
-## 为什么要分层
+## 分层背景
 
 以前只有 `low` / `normal` / `high` 三档，心跳和 ACE 是 `high`，其余全是 `normal`。问题是「其余」里既有用户在面板上点的操作，也有农场定时任务、好友巡查、宠物同步：
 
@@ -16,7 +18,7 @@ Gateway 是一条 WebSocket 长连接，所有业务共用它。这份文档说�
 - 好友巡查一轮几百个 `Enter`/`Leave` 全排在同一个队列里，队列和 `pending` 双双拉满；
 - 服务端一旦变慢（请求挂十几秒不回包），队列只会越堆越长，最后连心跳都排不上，三次漏心跳直接下线。
 
-## 五个班次
+## 概念：五个班次
 
 优先级从高到低：
 
@@ -39,11 +41,11 @@ Gateway 是一条 WebSocket 长连接，所有业务共用它。这份文档说�
 
 所以任何时刻最多 5 个业务/保命请求在飞（2 critical + 3 business），加上空闲时可能有的 1 个 background。
 
-## 防饿死
+## 概念：防饿死机制
 
 严格按班次排序会让低优先班次在高优先班次不断到来时永远排不上。`selectDispatchIndex()` 的做法是：排队超过 `CLASS_STARVATION_MS = 4000` 的业务请求会被提升到队首（在同样满足容量约束的候选里挑等待最久的那个）。这个提升不会越过前台请求——只要队列里还有前台请求，新的后台业务请求就不会派发。
 
-## 班次是怎么定下来的
+## 班次判定
 
 `resolveRequestClass(options, ambientClass)` 的判定顺序：
 
@@ -53,7 +55,9 @@ Gateway 是一条 WebSocket 长连接，所有业务共用它。这份文档说�
 4. `AsyncLocalStorage` 里的环境班次 → 用它；
 5. 都没有 → `foreground`。
 
-**`priority: 'normal'` 被视为「调用方没表态」，走第 4 步。** 这一点很关键：项目里大量 API 封装（`friend/api.ts`、`friend/gid-manager.ts`、`services/interact.ts` 等）默认传 `'normal'`，如果把它当成明确的前台声明，后台定时任务发的请求就会全部伪装成前台流量，分层等于没做。
+**注意事项：** `priority: 'normal'` 被视为「调用方没表态」，走第 4 步。这一点很关键：项目里大量 API 封装（`friend/api.ts`、`friend/gid-manager.ts`、`services/interact.ts` 等）默认传 `'normal'`，如果把它当成明确的前台声明，后台定时任务发的请求就会全部伪装成前台流量，分层等于没做。
+
+### 环境班次的来源
 
 环境班次由 `services/scheduler.ts` 注入：`createScheduler(namespace)` 创建的定时器，任务体整体跑在 `classForSchedulerNamespace(namespace)` 里。
 
