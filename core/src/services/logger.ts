@@ -13,6 +13,11 @@ try {
 const DIAGNOSTIC_CODE_KEY_RE = /^(?:disconnect|close|error|http|status|exit|reason)Code$/i;
 const SENSITIVE_KEY_RE = /code|token|password|passwd|auth|ticket|cookie|session/i;
 
+// 统一使用北京时间（UTC+8）时间戳
+function beijingIso(): string {
+    return new Date(Date.now() + 8 * 3600 * 1000).toISOString().replace('Z', '+08:00');
+}
+
 function redactString(input: any): string {
     let text = String(input || '');
     text = text.replace(/([?&](?:code|token|ticket|password)=)[^&\s]+/gi, '$1[REDACTED]');
@@ -55,7 +60,7 @@ function appendFallbackLog(level: string, moduleName: string, message: string, m
     try {
         const dir = ensureFallbackLogDir();
         const payload = {
-            ts: new Date().toISOString(),
+            ts: beijingIso(),
             level,
             module: moduleName,
             message: redactString(message),
@@ -80,7 +85,7 @@ interface ModuleLogger {
 
 function createConsoleFallback(moduleName: string): ModuleLogger {
     const write = (level: string, message: string, meta: any) => {
-        const ts = new Date().toISOString();
+        const ts = beijingIso();
         const safeMsg = redactString(message);
         const safeMeta = sanitizeMeta(meta);
         appendFallbackLog(level, moduleName, safeMsg, safeMeta);
@@ -122,7 +127,7 @@ function getRootLogger(): any {
             new winston.transports.Console({
                 format: combine(
                     colorize(),
-                    timestamp(),
+                    timestamp({ format: () => beijingIso() }),
                     errors({ stack: true }),
                     printf((info: any) => {
                         const moduleName = info.module ? `[${info.module}] ` : '';
@@ -141,12 +146,12 @@ function getRootLogger(): any {
             }),
             new winston.transports.File({
                 filename: path.join(logDir, 'combined.log'),
-                format: combine(timestamp(), errors({ stack: true }), json()),
+                format: combine(timestamp({ format: () => beijingIso() }), errors({ stack: true }), json()),
             }),
             new winston.transports.File({
                 filename: path.join(logDir, 'error.log'),
                 level: 'error',
-                format: combine(timestamp(), errors({ stack: true }), json()),
+                format: combine(timestamp({ format: () => beijingIso() }), errors({ stack: true }), json()),
             }),
         ],
     });
