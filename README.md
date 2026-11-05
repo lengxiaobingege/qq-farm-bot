@@ -263,7 +263,7 @@ pnpm -C core exec tsx ../tools/audit-capture-compatibility.js <capture-dir>
 | --- | --- |
 | 工具链 | [工具脚本](docs/tools.md) |
 | 架构与运行时 | [网络并发模型](docs/network-concurrency.md)、[TSDK Node.js 运行约定](docs/tsdk-runtime.md)、[配置存储、迁移与缓存](docs/config-storage.md) |
-| 活动协议实现 | [雨落成诗活动](docs/weather-activity.md)、[神秘商人、游戏商城与购买协议](docs/shop-protocols.md)、[图鉴、变异宝典与藏品](docs/collections-20261101.md) |
+| 活动协议实现 | [神秘商人、游戏商城与购买协议](docs/shop-protocols.md)、[图鉴、变异宝典与藏品](docs/collections-20261101.md)、[奶茶活动与客户端更新](docs/milk-tea-20261015.md)、[节令日历与资源更新](docs/solar-calendar-20261016.md) |
 | 游戏版本对齐 | [2026-10-22 游戏版本与资源对齐](docs/game-update-20261022.md) |
 | 宠物体系 | [好友宠物缓存与每日同步](docs/friend-pet-cache.md)、[个人页宠物协议](docs/pet-protocols.md) |
 
