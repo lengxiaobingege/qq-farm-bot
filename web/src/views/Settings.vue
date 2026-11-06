@@ -2223,7 +2223,7 @@ async function handleResetSystemConfig() {
                     v-if="!isDingTalkChannel"
                     v-model="localOffline.token"
                     :label="offlineTokenLabel"
-                    type="text"
+                    type="password"
                     :placeholder="offlineTokenPlaceholder"
                   />
 
