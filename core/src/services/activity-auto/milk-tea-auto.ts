@@ -16,6 +16,13 @@ const { logActivityError, safeStep, takeStepFailures } = require('./shared');
 // 结算期收尾提醒：进入结算期后按北京日期每天最多推送一次
 let lastSettleRemindDay = '';
 
+/** 检查余额是否足以支付 costs（与 milk-tea.ts checkCost 同规则）；余额不足时应跳过而不是报失败 */
+function canAfford(costs: any, balances: any, count = 1): boolean {
+    if (!Array.isArray(costs) || costs.length === 0) return true;
+    if (!balances || typeof balances !== 'object') return false;
+    return costs.every((c: any) => (toNum(balances[String(toNum(c.id))]) || 0) >= toNum(c.count) * count);
+}
+
 function beijingDayKey(tsSec: number): string {
     return new Date((tsSec + 8 * 3600) * 1000).toISOString().slice(0, 10);
 }
@@ -134,9 +141,10 @@ async function autoMilkTea(): Promise<AutoResult> {
             shopState = await getMilkTeaActivity('shop');
         }
 
-        // 加速收银台
+        // 加速收银台（余额不足时静默跳过，避免每轮报失败）
         shopState = await getMilkTeaActivity('shop');
-        if (!shopState.shop.is_settling && shopState.shop.sales_item_id && toNum(shopState.summary.shop_open_at) > 0) {
+        if (!shopState.shop.is_settling && shopState.shop.sales_item_id && toNum(shopState.summary.shop_open_at) > 0
+            && canAfford([{ id: toNum(shopState.shop.sales_item_id), count: 1 }], shopState.balances)) {
             await safeStep('加速收银台', async () => {
                 await operateMilkTeaActivity('boost', {
                     count: 1,
@@ -200,9 +208,9 @@ async function autoMilkTea(): Promise<AutoResult> {
             }
         }
 
-        // 解锁成长基金
+        // 解锁成长基金（余额不足时静默跳过）
         const fundState = await getMilkTeaActivity('fund');
-        if (!fundState.fund.unlocked && fundState.fund.costs?.length > 0) {
+        if (!fundState.fund.unlocked && fundState.fund.costs?.length > 0 && canAfford(fundState.fund.costs, fundState.balances)) {
             await safeStep('解锁成长基金', async () => {
                 await operateMilkTeaActivity('unlock', {
                     expectedCosts: fundState.fund.costs
