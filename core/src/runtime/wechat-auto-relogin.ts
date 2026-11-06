@@ -13,7 +13,8 @@ const { getServerTimeSec, toNum, log, sleep, unixSeconds } = require('../utils/u
 
 const DEFAULT_RETRY_DELAYS_MS = [30000, 12000, 30000];
 const SESSION_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
-const SESSION_REFRESH_AHEAD_MS = 10 * 60 * 1000;
+// 到期前 30 分钟主动刷新 access token / login buffer（用户要求：过期前半小时执行一次刷新）
+const SESSION_REFRESH_AHEAD_MS = 30 * 60 * 1000;
 
 interface WechatAutoReloginOptions {
     store: any;
@@ -25,7 +26,7 @@ interface WechatAutoReloginOptions {
     triggerEventNotify: (payload: any) => void;
     setTimeoutTask?: (taskName: string, delayMs: number, taskFn: () => Promise<void> | void) => any;
     clearTimeoutTask?: (taskName: string) => void;
-    issueWxLoginCode?: (loginBuffer: string, appId: string, credentials?: any) => Promise<any>;
+    issueWxLoginCode?: (loginBuffer: string, appId: string, credentials?: any, aheadMs?: number) => Promise<any>;
     retryDelaysMs?: number[];
 }
 
@@ -75,7 +76,7 @@ function createWechatAutoReloginService(options: WechatAutoReloginOptions) {
             log('系统', `账号 ${name} 微信会话将过期，提前自动刷新`, {
                 accountId: id, accountName: name, expiresAt: Number(account.wxExpiresAt || 0),
             });
-            const issued = await issueWxLoginCode(loginBuffer, WX_FARM_APP_ID, credentials);
+            const issued = await issueWxLoginCode(loginBuffer, WX_FARM_APP_ID, credentials, SESSION_REFRESH_AHEAD_MS);
             let code: string, nextBuffer: string, nextCredentials: any;
             if (typeof issued === 'string') {
                 code = String(issued || '').trim();
@@ -132,7 +133,7 @@ function createWechatAutoReloginService(options: WechatAutoReloginOptions) {
         || ((taskName: string) => scheduler.clear(taskName));
     const wxLogin = new WxLoginService();
     const issueWxLoginCode = options.issueWxLoginCode
-        || ((loginBuffer: string, appId: string, credentials?: any) => wxLogin.issueCodeFromLoginBuffer(loginBuffer, appId, credentials));
+        || ((loginBuffer: string, appId: string, credentials?: any, aheadMs?: number) => wxLogin.issueCodeFromLoginBuffer(loginBuffer, appId, credentials, aheadMs));
     const attempts = new Map<string, number>();
     const cancelled = new Set<string>();
     const trackedIds = new Set<string>();

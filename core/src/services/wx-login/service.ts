@@ -448,9 +448,9 @@ export class WxLoginService {
         return { loginBuffer, credentials: refreshed, refreshed: true };
     }
 
-    async ensureLoginBuffer(loginBuffer: string, credentials?: WxLoginCredentials | null): Promise<WxLoginBufferResult> {
+    async ensureLoginBuffer(loginBuffer: string, credentials?: WxLoginCredentials | null, aheadMs: number = REFRESH_AHEAD_MS): Promise<WxLoginBufferResult> {
         const buffer = String(loginBuffer || '').trim();
-        if (credentials && String(credentials.refreshToken || '').trim() && credentialsDueForRefresh(credentials)) {
+        if (credentials && String(credentials.refreshToken || '').trim() && credentialsDueForRefresh(credentials, Date.now(), aheadMs)) {
             return this.refreshLoginBuffer(credentials);
         }
         if (buffer) {
@@ -466,8 +466,8 @@ export class WxLoginService {
         throw new Error('WeChat login session has not been confirmed');
     }
 
-    async issueCodeFromLoginBuffer(loginBuffer: string, appId: string, credentials?: WxLoginCredentials | null): Promise<WxLoginBufferResult & { code: string }> {
-        const ensured = await this.ensureLoginBuffer(loginBuffer, credentials);
+    async issueCodeFromLoginBuffer(loginBuffer: string, appId: string, credentials?: WxLoginCredentials | null, aheadMs: number = REFRESH_AHEAD_MS): Promise<WxLoginBufferResult & { code: string }> {
+        const ensured = await this.ensureLoginBuffer(loginBuffer, credentials, aheadMs);
         let code = '';
         try {
             code = String(await getNativeWxLoginCode(ensured.loginBuffer, appId) || '').trim();
