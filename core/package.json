@@ -13,10 +13,10 @@
     "build": "tsc && tsc -p tsconfig.client.json",
     "build:ts": "tsc && tsc -p tsconfig.client.json",
     "typecheck": "tsc --noEmit",
-    "build:release": "tsc && tsc -p tsconfig.client.json && pkg . --no-bytecode --targets node18-win-x64,node18-linux-x64,node18-macos-x64,node18-macos-arm64 --out-path dist/bin",
-    "build:win": "tsc && tsc -p tsconfig.client.json && pkg . --no-bytecode --targets node18-win-x64 --out-path dist/bin",
-    "build:linux": "tsc && tsc -p tsconfig.client.json && pkg . --no-bytecode --targets node18-linux-x64 --out-path dist/bin",
-    "build:mac": "tsc && tsc -p tsconfig.client.json && pkg . --no-bytecode --targets node18-macos-x64,node18-macos-arm64 --out-path dist/bin",
+    "build:release": "tsc && tsc -p tsconfig.client.json && pkg . --no-bytecode --targets node22-win-x64,node22-linux-x64,node22-macos-x64,node22-macos-arm64 --out-path dist/bin",
+    "build:win": "tsc && tsc -p tsconfig.client.json && pkg . --no-bytecode --targets node22-win-x64 --out-path dist/bin",
+    "build:linux": "tsc && tsc -p tsconfig.client.json && pkg . --no-bytecode --targets node22-linux-x64 --out-path dist/bin",
+    "build:mac": "tsc && tsc -p tsconfig.client.json && pkg . --no-bytecode --targets node22-macos-x64,node22-macos-arm64 --out-path dist/bin",
     "lint": "eslint . --fix",
     "test": "pnpm run build:ts && node --test tests/*.test.js"
   },
@@ -37,8 +37,8 @@
     "@types/express": "^5.0.6",
     "@types/node": "^24.10.1",
     "@types/ws": "^8.18.1",
+    "@yao-pkg/pkg": "^6.25.0",
     "eslint": "^9.39.1",
-    "pkg": "^5.8.1",
     "tsx": "^4.21.0",
     "typescript": "~5.9.3"
   },
@@ -53,6 +53,9 @@
       "src/activity-data/**/*",
       "src/utils/tsdk.wasm",
       "src/utils/tsdk-wx.wasm"
+    ],
+    "scripts": [
+      "dist/**/*.js"
     ]
   }
 }

@@ -12,6 +12,7 @@ const { createScheduler } = require('../services/scheduler');
 const { createRuntimeState } = require('./runtime-state');
 const { createWorkerManager } = require('./worker-manager');
 const { tightenDataFilePerms } = require('../utils/data-file-permissions');
+const { startDataBackupScheduler } = require('../services/data-backup');
 
 const OPERATION_KEYS = ['harvest', 'farming', 'fertilize', 'plant', 'steal', 'helpFarming', 'taskClaim', 'sell', 'upgrade'];
 
@@ -195,6 +196,8 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
 
         // master 启动即巡检敏感文件权限（历史文件可能是 0644）
         tightenDataFilePerms();
+        // 启动每日数据备份调度（03:00 北京时间，保留 7 份）
+        startDataBackupScheduler();
 
         const savedSystemConfig = store.getSystemConfig();
         if (savedSystemConfig) {

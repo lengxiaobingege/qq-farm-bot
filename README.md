@@ -1,8 +1,8 @@
 # QQ 农场智能助手
 
-[![version](https://img.shields.io/badge/version-20261102-green)](https://github.com/lengxiaobingege/qq-farm-bot)
-[![protocol](https://img.shields.io/badge/protocol-1.16.1.6__20261028-blue)](https://github.com/lengxiaobingege/qq-farm-bot)
-[![tests](https://img.shields.io/badge/tests-284%20passing-brightgreen)](#开发命令)
+[![version](https://img.shields.io/badge/version-20261104-green)](https://github.com/lengxiaobingege/qq-farm-bot)
+[![protocol](https://img.shields.io/badge/protocol-1.16.3.8_20261028-blue)](https://github.com/lengxiaobingege/qq-farm-bot)
+[![tests](https://img.shields.io/badge/tests-266%20passing-brightgreen)](#开发命令)
 [![node](https://img.shields.io/badge/node-20.19%2B-339933)](#环境要求)
 
 基于 Node.js 的 QQ 农场微信端自动化助手：多账号挂机、农场与好友自动化、活动自动化、活动中心、商城、数据分析与 Web 控制面板。
