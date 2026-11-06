@@ -4,6 +4,7 @@ export {};
 const { DEFAULT_CLIENT_VERSION, DEFAULT_WX_CLIENT_VERSION, DEFAULT_TIME_ZONE, normalizeTimeZone, resolveClientVersionUpdatedAt } = require('../../config/config');
 
 const sharedState = require('./shared-state');
+const { isEncrypted, encryptValue, decryptValue } = require('../../utils/secret-crypto');
 
 const {
     PUSHOO_CHANNELS,
@@ -34,12 +35,15 @@ function normalizeOfflineReminder(input: unknown): OfflineReminder {
     const channel = PUSHOO_CHANNELS.has(migratedChannel)
         ? migratedChannel
         : DEFAULT_OFFLINE_REMINDER.channel;
-    const token = (src.token !== undefined && src.token !== null)
+    // token / secret 在磁盘上以密文保存，读取时统一解密；历史明文自动兼容
+    const rawToken = (src.token !== undefined && src.token !== null)
         ? String(src.token).trim()
         : DEFAULT_OFFLINE_REMINDER.token;
-    const secret = (src.secret !== undefined && src.secret !== null)
+    const token = isEncrypted(rawToken) ? decryptValue(rawToken) : rawToken;
+    const rawSecret = (src.secret !== undefined && src.secret !== null)
         ? String(src.secret).trim()
         : DEFAULT_OFFLINE_REMINDER.secret;
+    const secret = isEncrypted(rawSecret) ? decryptValue(rawSecret) : rawSecret;
     let title = (src.title !== undefined && src.title !== null)
         ? String(src.title).trim()
         : DEFAULT_OFFLINE_REMINDER.title;
@@ -105,7 +109,13 @@ function setLoginSettings(cfg: Partial<LoginSettings> | undefined): LoginSetting
 function setOfflineReminder(cfg: Partial<OfflineReminder> | undefined): OfflineReminder {
     const current = normalizeOfflineReminder(globalConfig.offlineReminder);
     const next = normalizeOfflineReminder({ ...current, ...(cfg || {}) });
-    saveGlobalConfig({ offlineReminder: next });
+    // 内存与返回值保持明文供运行时使用，落盘时替换为密文
+    const persisted = {
+        ...next,
+        token: next.token ? encryptValue(next.token) : '',
+        secret: next.secret ? encryptValue(next.secret) : '',
+    };
+    saveGlobalConfig({ offlineReminder: persisted as OfflineReminder });
     return getOfflineReminder();
 }
 
