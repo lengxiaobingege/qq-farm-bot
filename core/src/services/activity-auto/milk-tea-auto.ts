@@ -7,7 +7,7 @@ export {};
 
 import type { AutoResult } from './shared';
 const { isAutomationOn } = require('../../models/store');
-const { getOfflineReminder } = require('../../models/store/global-config');
+const { getEventNotify } = require('../../models/store/global-config');
 const { sendPushooMessage } = require('../push');
 const { getServerTimeSec, toNum, log, sleep } = require('../../utils/utils');
 const { getMilkTeaActivity, operateMilkTeaActivity } = require('../milk-tea');
@@ -28,7 +28,7 @@ async function maybeRemindMilkSettle(state: any): Promise<void> {
         if (!(settleStart > 0 && now >= settleStart && end > 0 && now < end)) return;
         const dayKey = beijingDayKey(now);
         if (dayKey === lastSettleRemindDay) return;
-        const cfg = getOfflineReminder ? getOfflineReminder() : null;
+        const cfg = getEventNotify ? getEventNotify() : null;
         const channel = String(cfg?.channel || '').trim().toLowerCase();
         const endpoint = String(cfg?.endpoint || '').trim();
         const token = String(cfg?.token || '').trim();

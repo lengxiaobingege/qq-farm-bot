@@ -50,8 +50,8 @@ module.exports = {
     setUITheme: globalConfig.setUITheme,
     getLoginSettings: globalConfig.getLoginSettings,
     setLoginSettings: globalConfig.setLoginSettings,
-    getOfflineReminder: globalConfig.getOfflineReminder,
-    setOfflineReminder: globalConfig.setOfflineReminder,
+    getEventNotify: globalConfig.getEventNotify,
+    setEventNotify: globalConfig.setEventNotify,
 
     // Accounts
     getAccounts: accounts.getAccounts,

@@ -1,4 +1,4 @@
-import type { AccountConfig, AutomationConfig, BagSeedFallbackStrategy, FertilizerLandType, GlobalConfig, IntervalConfig, LoginSettings, OfflineReminder, PlantingStrategy, QuietHoursConfig } from '../../types/config';
+import type { AccountConfig, AutomationConfig, BagSeedFallbackStrategy, FertilizerLandType, GlobalConfig, IntervalConfig, LoginSettings, EventNotify, PlantingStrategy, QuietHoursConfig } from '../../types/config';
 export {};
 
 const { DEFAULT_TIME_ZONE, normalizeTimeZone, resolveClientVersion } = require('../../config/config');
@@ -29,7 +29,7 @@ const DEFAULT_FRIENDS_LIST_CACHE_TTL_SEC: number = 60;
 let systemConfigMigrated: boolean = false;
 let accountFallbackConfig: AccountConfig;
 
-const DEFAULT_OFFLINE_REMINDER: OfflineReminder = {
+const DEFAULT_EVENT_NOTIFY: EventNotify = {
     channel: 'webhook',
     endpoint: '',
     token: '',
@@ -497,7 +497,7 @@ const globalConfig: GlobalConfig = {
         theme: 'light',
     },
     loginSettings: { ...DEFAULT_LOGIN_SETTINGS },
-    offlineReminder: { ...DEFAULT_OFFLINE_REMINDER },
+    eventNotify: { ...DEFAULT_EVENT_NOTIFY },
     systemConfig: null,
 };
 
@@ -529,9 +529,12 @@ function loadGlobalConfig(): void {
             const theme = String(globalConfig.ui.theme || '').toLowerCase();
             globalConfig.ui.theme = theme === 'light' ? 'light' : 'dark';
 
-            // offlineReminder normalization done in global-config
-            if (data.offlineReminder && typeof data.offlineReminder === 'object') {
-                globalConfig.offlineReminder = data.offlineReminder;
+            // eventNotify normalization done in global-config
+            // 兼容旧字段名 offlineReminder：首次加载时迁移，之后按新字段保存
+            if (data.eventNotify && typeof data.eventNotify === 'object') {
+                globalConfig.eventNotify = data.eventNotify;
+            } else if (data.offlineReminder && typeof data.offlineReminder === 'object') {
+                globalConfig.eventNotify = data.offlineReminder;
             }
 
             if (data.loginSettings && typeof data.loginSettings === 'object') {
@@ -605,7 +608,7 @@ module.exports = {
     INTERVAL_MAX_SEC,
     DEFAULT_KNOWN_FRIEND_GID_SYNC_COOLDOWN_SEC,
     DEFAULT_FRIENDS_LIST_CACHE_TTL_SEC,
-    DEFAULT_OFFLINE_REMINDER,
+    DEFAULT_EVENT_NOTIFY,
     DEFAULT_LOGIN_SETTINGS,
     DEFAULT_ACCOUNT_CONFIG,
     ALLOWED_AUTOMATION_KEYS,

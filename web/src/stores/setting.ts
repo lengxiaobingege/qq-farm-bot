@@ -54,7 +54,7 @@ export interface FriendQuietHoursConfig {
   continueFarm?: boolean
 }
 
-export interface OfflineConfig {
+export interface EventNotifyConfig {
   channel: string
   endpoint: string
   token: string
@@ -79,7 +79,7 @@ export interface SettingsState {
   friendQuietHours: FriendQuietHoursConfig
   automation: AutomationConfig
   ui: UIConfig
-  offlineReminder: OfflineConfig
+  eventNotify: EventNotifyConfig
   stealDelaySeconds: number
   plantOrderRandom: boolean
   plantDelaySeconds: number
@@ -158,7 +158,7 @@ function createDefaultSettings(): SettingsState {
     friendQuietHours: { enabled: false, start: '23:00', end: '07:00', continueFarm: true },
     automation: {},
     ui: {},
-    offlineReminder: {
+    eventNotify: {
       channel: 'webhook',
       endpoint: '',
       token: '',
@@ -223,9 +223,9 @@ export const useSettingStore = defineStore('setting', () => {
       },
       automation: cloneValue(data.automation || defaults.automation),
       ui: cloneValue(data.ui || defaults.ui),
-      offlineReminder: {
-        ...defaults.offlineReminder,
-        ...(cloneValue(data.offlineReminder) || {}),
+      eventNotify: {
+        ...defaults.eventNotify,
+        ...(cloneValue(data.eventNotify) || {}),
       },
       stealDelaySeconds: data.stealDelaySeconds ?? defaults.stealDelaySeconds,
       plantOrderRandom: data.plantOrderRandom ?? defaults.plantOrderRandom,
@@ -330,12 +330,12 @@ export const useSettingStore = defineStore('setting', () => {
     }
   }
 
-  async function saveOfflineConfig(config: OfflineConfig) {
+  async function saveEventNotifyConfig(config: EventNotifyConfig) {
     beginRequest()
     try {
-      const { data } = await api.post('/api/settings/offline-reminder', config)
+      const { data } = await api.post('/api/settings/event-notify', config)
       if (data && data.ok) {
-        settings.value.offlineReminder = cloneValue(config)
+        settings.value.eventNotify = cloneValue(config)
         return { ok: true }
       }
       return { ok: false, error: '保存失败' }
@@ -348,5 +348,5 @@ export const useSettingStore = defineStore('setting', () => {
     }
   }
 
-  return { settings, loading, loadedAccountId, fetchSettings, saveSettings, saveOfflineConfig }
+  return { settings, loading, loadedAccountId, fetchSettings, saveSettings, saveEventNotifyConfig }
 })

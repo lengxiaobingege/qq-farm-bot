@@ -6,7 +6,7 @@ const store = require('../models/store');
 const { updateRuntimeConfig, getRuntimeConfig, getDefaultSystemConfig } = require('../config/config');
 const { sendPushooMessage } = require('../services/push');
 const { createDataProvider } = require('./data-provider');
-const { createReloginReminderService } = require('./relogin-reminder');
+const { createEventNotifyService } = require('./event-notify');
 const { createWechatAutoReloginService } = require('./wechat-auto-relogin');
 const { createScheduler } = require('../services/scheduler');
 const { createRuntimeState } = require('./runtime-state');
@@ -56,7 +56,7 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
         filterLogs,
     } = runtimeState;
 
-    const reloginReminder = createReloginReminderService({
+    const reloginReminder = createEventNotifyService({
         store,
         sendPushooMessage,
         log,
@@ -64,7 +64,7 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
 
     const {
         getOfflineAutoDeleteMs,
-        triggerOfflineReminder,
+        triggerEventNotify,
         sendConfiguredPush,
     } = reloginReminder;
 
@@ -82,7 +82,7 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
         normalizeStatusForPanel,
         buildConfigSnapshotForAccount,
         getOfflineAutoDeleteMs,
-        triggerOfflineReminder,
+        triggerEventNotify,
         sendConfiguredPush,
         addOrUpdateAccount: store.addOrUpdateAccount,
         deleteAccount: store.deleteAccount,
@@ -115,7 +115,7 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
             };
             check();
         }),
-        triggerOfflineReminder,
+        triggerEventNotify,
         setTimeoutTask: (taskName: string, delayMs: number, taskFn: () => Promise<void> | void) => {
             return autoReloginScheduler.setTimeoutTask(taskName, delayMs, taskFn);
         },

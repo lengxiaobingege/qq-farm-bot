@@ -382,7 +382,7 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
     });
 
     // API: 保存事件通知配置
-    app.post('/api/settings/offline-reminder', async (req: Request, res: Response) => {
+    app.post('/api/settings/event-notify', async (req: Request, res: Response) => {
         try {
             const body = (req.body && typeof req.body === 'object') ? req.body : {};
             const channel = String(body.channel || '').trim().toLowerCase();
@@ -411,7 +411,7 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
                 }
             }
             // 前端收到的是掩码：回传掩码或不传表示沿用已保存的密钥，只有新输入的值才覆盖
-            const saved = store.getOfflineReminder ? store.getOfflineReminder() : {};
+            const saved = store.getEventNotify ? store.getEventNotify() : {};
             const isMaskEcho = (incoming: unknown, current: unknown) => {
                 const value = String(incoming ?? '').trim();
                 if (value === '') return true;
@@ -420,7 +420,7 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
             const payload = { ...body };
             if (isMaskEcho(payload.token, saved.token)) payload.token = String(saved.token || '');
             if (isMaskEcho(payload.secret, saved.secret)) payload.secret = String(saved.secret || '');
-            const data = store.setOfflineReminder ? store.setOfflineReminder(payload) : {};
+            const data = store.setEventNotify ? store.setEventNotify(payload) : {};
             res.json({ ok: true, data: { ...(data || {}), token: maskValue(data?.token), secret: maskValue(data?.secret) } });
         } catch (e: any) {
             handleApiError(res, e);
@@ -428,9 +428,9 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
     });
 
     // API: 测试事件通知推送（不落盘）
-    app.post('/api/settings/offline-reminder/test', async (req: Request, res: Response) => {
+    app.post('/api/settings/event-notify/test', async (req: Request, res: Response) => {
         try {
-            const saved = store.getOfflineReminder ? store.getOfflineReminder() : {};
+            const saved = store.getEventNotify ? store.getEventNotify() : {};
             const body = (req.body && typeof req.body === 'object') ? req.body : {};
             const cfg = { ...(saved || {}), ...body };
             // 前端只能拿到掩码：回传掩码或空值时改用已保存的真实密钥发送
@@ -539,18 +539,18 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
             const autoAcceptHarvestStealHarvest = id && (typeof store.getAutoAcceptHarvestStealHarvest === 'function') ? store.getAutoAcceptHarvestStealHarvest(id) : 8;
             const autoAcceptHarvestStealSteal = id && (typeof store.getAutoAcceptHarvestStealSteal === 'function') ? store.getAutoAcceptHarvestStealSteal(id) : 1;
             const ui = store.getUI();
-            const rawOfflineReminder = store.getOfflineReminder
-                ? store.getOfflineReminder()
+            const rawEventNotify = store.getEventNotify
+                ? store.getEventNotify()
                 : { channel: 'webhook', endpoint: '', token: '', secret: '', title: '{accountName} 已离线', msg: '农场连接已断开，重新扫码登录即可继续。' };
             // Token / 加签密钥不下发明文，仅返回掩码；前端未修改时原样回传即表示保持原值
-            const offlineReminder = {
-                ...rawOfflineReminder,
-                token: maskValue(rawOfflineReminder.token),
-                secret: maskValue(rawOfflineReminder.secret),
-                tokenConfigured: !!String(rawOfflineReminder.token || '').trim(),
-                secretConfigured: !!String(rawOfflineReminder.secret || '').trim(),
+            const eventNotify = {
+                ...rawEventNotify,
+                token: maskValue(rawEventNotify.token),
+                secret: maskValue(rawEventNotify.secret),
+                tokenConfigured: !!String(rawEventNotify.token || '').trim(),
+                secretConfigured: !!String(rawEventNotify.secret || '').trim(),
             };
-            res.json({ ok: true, data: { intervals, strategy, preferredSeed, friendQuietHours, automation, stealDelaySeconds, plantOrderRandom, plantDelaySeconds, fertilizerBuyOrganicCount, fertilizerBuyOrganicThresholdHours, fertilizerBuyNormalCount, fertilizerBuyNormalThresholdHours, fertilizerBuyCheckIntervalMinutes, bagSeedPriority, bagSeedMultiLandReservationEnabled, bagSeedLandTypes, bagSeedFallbackStrategy, autoAcceptFriendMinLevel, autoAcceptRequireOwnLevel, autoAcceptHarvestStealEnabled, autoAcceptHarvestStealHarvest, autoAcceptHarvestStealSteal, ui, offlineReminder } });
+            res.json({ ok: true, data: { intervals, strategy, preferredSeed, friendQuietHours, automation, stealDelaySeconds, plantOrderRandom, plantDelaySeconds, fertilizerBuyOrganicCount, fertilizerBuyOrganicThresholdHours, fertilizerBuyNormalCount, fertilizerBuyNormalThresholdHours, fertilizerBuyCheckIntervalMinutes, bagSeedPriority, bagSeedMultiLandReservationEnabled, bagSeedLandTypes, bagSeedFallbackStrategy, autoAcceptFriendMinLevel, autoAcceptRequireOwnLevel, autoAcceptHarvestStealEnabled, autoAcceptHarvestStealHarvest, autoAcceptHarvestStealSteal, ui, eventNotify } });
         } catch (e: any) {
             handleApiError(res, e);
         }

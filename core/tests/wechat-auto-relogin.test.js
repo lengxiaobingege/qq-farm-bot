@@ -57,7 +57,7 @@ function createHarness(overrides = {}) {
             stopped.push({ accountId, options });
         },
         waitForWorkerExit: overrides.waitForWorkerExit || (() => Promise.resolve()),
-        triggerOfflineReminder(payload) {
+        triggerEventNotify(payload) {
             reminders.push(payload);
         },
         setTimeoutTask(name, delayMs, fn) {

@@ -28,7 +28,7 @@ interface WorkerManagerOptions {
     normalizeStatusForPanel: (data: any, accountId: string, accountName: string) => any;
     buildConfigSnapshotForAccount: (accountId: string) => any;
     getOfflineAutoDeleteMs: () => number;
-    triggerOfflineReminder: (payload: any) => void;
+    triggerEventNotify: (payload: any) => void;
     sendConfiguredPush?: (payload: any) => Promise<void> | void;
     addOrUpdateAccount: (acc: any) => any;
     deleteAccount: (id: string) => void;
@@ -52,7 +52,7 @@ function createWorkerManager(options: WorkerManagerOptions) {
         normalizeStatusForPanel,
         buildConfigSnapshotForAccount,
         getOfflineAutoDeleteMs,
-        triggerOfflineReminder,
+        triggerEventNotify,
         sendConfiguredPush,
     addOrUpdateAccount,
     deleteAccount,
@@ -329,7 +329,7 @@ function createWorkerManager(options: WorkerManagerOptions) {
                     worker.autoDeleteTriggered = true;
                     const offlineMin = Math.floor(offlineMs / 60000);
                     log('系统', `账号 ${worker.name} 持续离线 ${offlineMin} 分钟，自动删除账号信息`);
-                    triggerOfflineReminder({
+                    triggerEventNotify({
                         accountId,
                         accountName: worker.name,
                         reason: 'offline_timeout',
@@ -419,7 +419,7 @@ function createWorkerManager(options: WorkerManagerOptions) {
                 worker.name,
                 { reason, reasonCode, diagnostics: msg.diagnostics || null },
             );
-            triggerOfflineReminder({
+            triggerEventNotify({
                 accountId,
                 accountName: worker.name,
                 reason: `kickout:${reason}`,
@@ -453,7 +453,7 @@ function createWorkerManager(options: WorkerManagerOptions) {
                 reason,
                 diagnostics: msg.diagnostics || null,
             });
-            triggerOfflineReminder({
+            triggerEventNotify({
                 accountId,
                 accountName: worker.name,
                 reason: `disconnect:${source}:${phase}:${code}`,

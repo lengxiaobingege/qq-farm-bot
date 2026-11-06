@@ -22,7 +22,7 @@ interface WechatAutoReloginOptions {
     startWorker: (account: any, options?: { preserveAutoRelogin?: boolean }) => boolean;
     stopWorker: (accountId: string, options?: { preserveAutoRelogin?: boolean }) => void;
     waitForWorkerExit?: (accountId: string) => Promise<void>;
-    triggerOfflineReminder: (payload: any) => void;
+    triggerEventNotify: (payload: any) => void;
     setTimeoutTask?: (taskName: string, delayMs: number, taskFn: () => Promise<void> | void) => any;
     clearTimeoutTask?: (taskName: string) => void;
     issueWxLoginCode?: (loginBuffer: string, appId: string, credentials?: any) => Promise<any>;
@@ -51,7 +51,7 @@ function createWechatAutoReloginService(options: WechatAutoReloginOptions) {
         startWorker,
         stopWorker,
         waitForWorkerExit,
-        triggerOfflineReminder,
+        triggerEventNotify,
         retryDelaysMs = DEFAULT_RETRY_DELAYS_MS,
     } = options;
     const scheduler = createScheduler('wechat_auto_relogin');
@@ -260,7 +260,7 @@ function createWechatAutoReloginService(options: WechatAutoReloginOptions) {
             forget(id);
             log('系统', `账号 ${name} 没有可用的微信登录会话，等待重新扫码`, { accountId: id, accountName: name, reason });
             addAccountLog('wx_auto_relogin_missing_session', `账号 ${name} 没有可用的微信登录会话，等待重新扫码`, id, name, { reason });
-            triggerOfflineReminder({ accountId: id, accountName: name, reason, offlineMs: 0 });
+            triggerEventNotify({ accountId: id, accountName: name, reason, offlineMs: 0 });
             return;
         }
 
@@ -337,7 +337,7 @@ function createWechatAutoReloginService(options: WechatAutoReloginOptions) {
                         accountName: name,
                         reason,
                     });
-                    triggerOfflineReminder({ accountId: id, accountName: name, reason: `auto_relogin_failed:${reason}`, offlineMs: 0 });
+                    triggerEventNotify({ accountId: id, accountName: name, reason: `auto_relogin_failed:${reason}`, offlineMs: 0 });
                 }
                 return;
             }

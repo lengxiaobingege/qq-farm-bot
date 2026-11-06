@@ -1,4 +1,4 @@
-import type { GlobalConfig, LoginSettings, OfflineReminder, SystemConfig, UIConfig } from '../../types/config';
+import type { GlobalConfig, LoginSettings, EventNotify, SystemConfig, UIConfig } from '../../types/config';
 export {};
 
 const { DEFAULT_CLIENT_VERSION, DEFAULT_WX_CLIENT_VERSION, DEFAULT_TIME_ZONE, normalizeTimeZone, resolveClientVersionUpdatedAt } = require('../../config/config');
@@ -8,7 +8,7 @@ const { isEncrypted, encryptValue, decryptValue } = require('../../utils/secret-
 
 const {
     PUSHOO_CHANNELS,
-    DEFAULT_OFFLINE_REMINDER,
+    DEFAULT_EVENT_NOTIFY,
     DEFAULT_LOGIN_SETTINGS,
     globalConfig,
     normalizeAccountConfig,
@@ -16,42 +16,42 @@ const {
     DEFAULT_ACCOUNT_CONFIG,
 } = sharedState;
 
-function normalizeOfflineReminder(input: unknown): OfflineReminder {
+function normalizeEventNotify(input: unknown): EventNotify {
     const src: Record<string, any> = (input && typeof input === 'object') ? input as Record<string, any> : {};
     let offlineDeleteSec = Number.parseInt(src.offlineDeleteSec, 10);
     if (!Number.isFinite(offlineDeleteSec) || offlineDeleteSec < 0) {
-        offlineDeleteSec = DEFAULT_OFFLINE_REMINDER.offlineDeleteSec;
+        offlineDeleteSec = DEFAULT_EVENT_NOTIFY.offlineDeleteSec;
     }
     const rawChannel = (src.channel !== undefined && src.channel !== null)
         ? String(src.channel).trim().toLowerCase()
         : '';
     const endpoint = (src.endpoint !== undefined && src.endpoint !== null)
         ? String(src.endpoint).trim()
-        : DEFAULT_OFFLINE_REMINDER.endpoint;
+        : DEFAULT_EVENT_NOTIFY.endpoint;
     const migratedChannel = rawChannel
         || (PUSHOO_CHANNELS.has(String(endpoint || '').trim().toLowerCase())
             ? String(endpoint || '').trim().toLowerCase()
-            : DEFAULT_OFFLINE_REMINDER.channel);
+            : DEFAULT_EVENT_NOTIFY.channel);
     const channel = PUSHOO_CHANNELS.has(migratedChannel)
         ? migratedChannel
-        : DEFAULT_OFFLINE_REMINDER.channel;
+        : DEFAULT_EVENT_NOTIFY.channel;
     // token / secret 在磁盘上以密文保存，读取时统一解密；历史明文自动兼容
     const rawToken = (src.token !== undefined && src.token !== null)
         ? String(src.token).trim()
-        : DEFAULT_OFFLINE_REMINDER.token;
+        : DEFAULT_EVENT_NOTIFY.token;
     const token = isEncrypted(rawToken) ? decryptValue(rawToken) : rawToken;
     const rawSecret = (src.secret !== undefined && src.secret !== null)
         ? String(src.secret).trim()
-        : DEFAULT_OFFLINE_REMINDER.secret;
+        : DEFAULT_EVENT_NOTIFY.secret;
     const secret = isEncrypted(rawSecret) ? decryptValue(rawSecret) : rawSecret;
     let title = (src.title !== undefined && src.title !== null)
         ? String(src.title).trim()
-        : DEFAULT_OFFLINE_REMINDER.title;
+        : DEFAULT_EVENT_NOTIFY.title;
     let msg = (src.msg !== undefined && src.msg !== null)
         ? String(src.msg).trim()
-        : DEFAULT_OFFLINE_REMINDER.msg;
-    if (title === '账号下线提醒') title = DEFAULT_OFFLINE_REMINDER.title;
-    if (msg === '账号下线') msg = DEFAULT_OFFLINE_REMINDER.msg;
+        : DEFAULT_EVENT_NOTIFY.msg;
+    if (title === '账号下线提醒') title = DEFAULT_EVENT_NOTIFY.title;
+    if (msg === '账号下线') msg = DEFAULT_EVENT_NOTIFY.msg;
     return {
         channel,
         endpoint,
@@ -85,8 +85,8 @@ function setUITheme(theme: unknown): UIConfig {
     return getUI();
 }
 
-function getOfflineReminder(): OfflineReminder {
-    return normalizeOfflineReminder(globalConfig.offlineReminder);
+function getEventNotify(): EventNotify {
+    return normalizeEventNotify(globalConfig.eventNotify);
 }
 
 function normalizeLoginSettings(input: unknown): LoginSettings {
@@ -106,17 +106,17 @@ function setLoginSettings(cfg: Partial<LoginSettings> | undefined): LoginSetting
     return getLoginSettings();
 }
 
-function setOfflineReminder(cfg: Partial<OfflineReminder> | undefined): OfflineReminder {
-    const current = normalizeOfflineReminder(globalConfig.offlineReminder);
-    const next = normalizeOfflineReminder({ ...current, ...(cfg || {}) });
+function setEventNotify(cfg: Partial<EventNotify> | undefined): EventNotify {
+    const current = normalizeEventNotify(globalConfig.eventNotify);
+    const next = normalizeEventNotify({ ...current, ...(cfg || {}) });
     // 内存与返回值保持明文供运行时使用，落盘时替换为密文
     const persisted = {
         ...next,
         token: next.token ? encryptValue(next.token) : '',
         secret: next.secret ? encryptValue(next.secret) : '',
     };
-    saveGlobalConfig({ offlineReminder: persisted as OfflineReminder });
-    return getOfflineReminder();
+    saveGlobalConfig({ eventNotify: persisted as EventNotify });
+    return getEventNotify();
 }
 
 function getSystemConfig(): SystemConfig | null {
@@ -186,8 +186,8 @@ function setSystemConfig(config: Partial<SystemConfig> | undefined): SystemConfi
 // Initialize on load
 const { loadGlobalConfig } = sharedState;
 loadGlobalConfig();
-// Apply offlineReminder normalization after load
-globalConfig.offlineReminder = normalizeOfflineReminder(globalConfig.offlineReminder);
+// Apply eventNotify normalization after load
+globalConfig.eventNotify = normalizeEventNotify(globalConfig.eventNotify);
 globalConfig.loginSettings = normalizeLoginSettings(globalConfig.loginSettings);
 if (sharedState.systemConfigMigrated && !process.env.FARM_ACCOUNT_ID) {
     saveGlobalConfig();
@@ -200,8 +200,8 @@ module.exports = {
     setUITheme,
     getLoginSettings,
     setLoginSettings,
-    getOfflineReminder,
-    setOfflineReminder,
+    getEventNotify,
+    setEventNotify,
     getSystemConfig,
     setSystemConfig,
 };

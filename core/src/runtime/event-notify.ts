@@ -6,14 +6,14 @@ interface ReloginReminderOptions {
     log: (tag: string, msg: string, extra?: any) => void;
 }
 
-interface OfflineReminderPayload {
+interface EventNotifyPayload {
     accountId?: string;
     accountName?: string;
     reason?: string;
     offlineMs?: number;
 }
 
-function createReloginReminderService(options: ReloginReminderOptions) {
+function createEventNotifyService(options: ReloginReminderOptions) {
     const { store, sendPushooMessage, log } = options;
 
     // 推送配置问题的报错只提醒一次：账号掉线循环重试期间会反复触发提醒，
@@ -27,13 +27,13 @@ function createReloginReminderService(options: ReloginReminderOptions) {
     }
 
     function getOfflineAutoDeleteMs(): number {
-        const cfg = store.getOfflineReminder ? store.getOfflineReminder() : null;
+        const cfg = store.getEventNotify ? store.getEventNotify() : null;
         const sec = Math.max(0, Number.parseInt(cfg?.offlineDeleteSec, 10) || 0);
         return sec === 0 ? Infinity : sec * 1000;
     }
 
     function resolvePushChannel(): { ok: true; channel: string; endpoint: string; token: string; secret: string } | { ok: false; reason: string } {
-        const cfg = store.getOfflineReminder ? store.getOfflineReminder() : null;
+        const cfg = store.getEventNotify ? store.getEventNotify() : null;
         if (!cfg) return { ok: false, reason: '未找到事件通知配置' };
 
         const channel = String(cfg.channel || '').trim().toLowerCase();
@@ -97,14 +97,14 @@ function createReloginReminderService(options: ReloginReminderOptions) {
         }
     }
 
-    async function triggerOfflineReminder(payload: OfflineReminderPayload = {}): Promise<void> {
+    async function triggerEventNotify(payload: EventNotifyPayload = {}): Promise<void> {
         try {
             const accountId = String(payload.accountId || '').trim();
             const accountName = String(payload.accountName || '').trim();
             const reason = String(payload.reason || 'unknown');
             log('系统', `触发事件通知: 账号=${accountName || accountId}, 原因=${reason}`, { accountId, accountName, reason });
 
-            const cfg = store.getOfflineReminder ? store.getOfflineReminder() : null;
+            const cfg = store.getEventNotify ? store.getEventNotify() : null;
             if (!cfg) {
                 log('错误', '未找到事件通知配置');
                 return;
@@ -128,7 +128,7 @@ function createReloginReminderService(options: ReloginReminderOptions) {
         }
     }
 
-    return { getOfflineAutoDeleteMs, triggerOfflineReminder, sendConfiguredPush };
+    return { getOfflineAutoDeleteMs, triggerEventNotify, sendConfiguredPush };
 }
 
-module.exports = { createReloginReminderService };
+module.exports = { createEventNotifyService };

@@ -99,7 +99,7 @@ export interface AccountConfig {
   autoAcceptHarvestStealSteal: number;
 }
 
-export interface OfflineReminder {
+export interface EventNotify {
   channel: string;
   endpoint: string;
   token: string;
@@ -144,6 +144,6 @@ export interface GlobalConfig {
   defaultAccountConfig: AccountConfig;
   ui: UIConfig;
   loginSettings: LoginSettings;
-  offlineReminder: OfflineReminder;
+  eventNotify: EventNotify;
   systemConfig: SystemConfig | null;
 }

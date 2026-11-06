@@ -796,7 +796,7 @@ async function loadStrategyData(accountId = currentAccountId.value) {
     return
   syncLocalStrategySettings()
   syncLocalAutomationSettings()
-  syncLocalOfflineSettings()
+  syncLocalEventNotify()
   if (isAccountConnected(accountId))
     await fetchSeedOptions(accountId)
 }
@@ -1085,7 +1085,7 @@ const passwordForm = ref({
   confirm: '',
 })
 
-const localOffline = ref({
+const localEventNotify = ref({
   channel: 'webhook',
   endpoint: '',
   token: '',
@@ -1141,19 +1141,19 @@ const CHANNEL_DOCS: Record<string, string> = {
   meow: 'https://www.chuckfang.com/MeoW/api_doc.html',
 }
 
-const offlineChannel = computed(() => String(localOffline.value.channel || '').trim().toLowerCase())
-const isDingTalkChannel = computed(() => offlineChannel.value === 'dingtalk')
-const isMeowChannel = computed(() => offlineChannel.value === 'meow')
-const offlineChannelUsesEndpoint = computed(() => offlineChannel.value === 'webhook' || isDingTalkChannel.value)
-const offlineEndpointLabel = computed(() => isDingTalkChannel.value ? 'Webhook 地址' : '接口地址')
-const offlineEndpointPlaceholder = computed(() => isDingTalkChannel.value
+const eventNotifyChannel = computed(() => String(localEventNotify.value.channel || '').trim().toLowerCase())
+const isDingTalkChannel = computed(() => eventNotifyChannel.value === 'dingtalk')
+const isMeowChannel = computed(() => eventNotifyChannel.value === 'meow')
+const eventNotifyChannelUsesEndpoint = computed(() => eventNotifyChannel.value === 'webhook' || isDingTalkChannel.value)
+const eventNotifyEndpointLabel = computed(() => isDingTalkChannel.value ? 'Webhook 地址' : '接口地址')
+const eventNotifyEndpointPlaceholder = computed(() => isDingTalkChannel.value
   ? '从钉钉群机器人设置页复制完整 Webhook'
   : '接收消息的接口地址')
-const offlineTokenLabel = computed(() => isMeowChannel.value ? '昵称' : 'Token')
-const offlineTokenPlaceholder = computed(() => isMeowChannel.value
+const eventNotifyTokenLabel = computed(() => isMeowChannel.value ? '昵称' : 'Token')
+const eventNotifyTokenPlaceholder = computed(() => isMeowChannel.value
   ? 'MeoW 注册昵称'
   : '接收端 token')
-const currentChannelDocUrl = computed(() => CHANNEL_DOCS[offlineChannel.value] || '')
+const currentChannelDocUrl = computed(() => CHANNEL_DOCS[eventNotifyChannel.value] || '')
 
 function openChannelDocs() {
   const url = currentChannelDocUrl.value
@@ -1162,9 +1162,9 @@ function openChannelDocs() {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-function syncLocalOfflineSettings() {
-  if (settings.value?.offlineReminder) {
-    const saved = JSON.parse(JSON.stringify(settings.value.offlineReminder))
+function syncLocalEventNotify() {
+  if (settings.value?.eventNotify) {
+    const saved = JSON.parse(JSON.stringify(settings.value.eventNotify))
     const next = {
       channel: 'webhook',
       endpoint: '',
@@ -1186,7 +1186,7 @@ function syncLocalOfflineSettings() {
       next.token = ''
     }
 
-    localOffline.value = next
+    localEventNotify.value = next
   }
 }
 
@@ -1194,7 +1194,7 @@ function validateDingTalkWebhook(): string {
   if (!isDingTalkChannel.value)
     return ''
 
-  const endpoint = String(localOffline.value.endpoint || '').trim()
+  const endpoint = String(localEventNotify.value.endpoint || '').trim()
   if (!endpoint)
     return '请填写钉钉机器人设置页提供的完整 Webhook 地址'
 
@@ -1215,7 +1215,7 @@ function validateDingTalkWebhook(): string {
 }
 
 watch(settings, () => {
-  syncLocalOfflineSettings()
+  syncLocalEventNotify()
 }, { deep: true })
 
 async function handleChangePassword() {
@@ -1262,7 +1262,7 @@ async function handleSaveOffline() {
 
   offlineSaving.value = true
   try {
-    const res = await settingStore.saveOfflineConfig(localOffline.value)
+    const res = await settingStore.saveEventNotifyConfig(localEventNotify.value)
 
     if (res.ok) {
       showAlert('事件通知设置已保存', 'primary')
@@ -1285,7 +1285,7 @@ async function handleTestOffline() {
 
   offlineTesting.value = true
   try {
-    const { data } = await api.post('/api/settings/offline-reminder/test', localOffline.value)
+    const { data } = await api.post('/api/settings/event-notify/test', localEventNotify.value)
     if (data?.ok) {
       showAlert('测试消息发送成功', 'primary')
     }
@@ -2206,30 +2206,30 @@ async function handleResetSystemConfig() {
                       </BaseButton>
                     </div>
                     <BaseSelect
-                      v-model="localOffline.channel"
+                      v-model="localEventNotify.channel"
                       :options="channelOptions"
                     />
                   </div>
 
                   <BaseInput
-                    v-if="offlineChannelUsesEndpoint"
-                    v-model="localOffline.endpoint"
-                    :label="offlineEndpointLabel"
+                    v-if="eventNotifyChannelUsesEndpoint"
+                    v-model="localEventNotify.endpoint"
+                    :label="eventNotifyEndpointLabel"
                     type="text"
-                    :placeholder="offlineEndpointPlaceholder"
+                    :placeholder="eventNotifyEndpointPlaceholder"
                   />
 
                   <BaseInput
                     v-if="!isDingTalkChannel"
-                    v-model="localOffline.token"
-                    :label="offlineTokenLabel"
+                    v-model="localEventNotify.token"
+                    :label="eventNotifyTokenLabel"
                     type="password"
-                    :placeholder="offlineTokenPlaceholder"
+                    :placeholder="eventNotifyTokenPlaceholder"
                   />
 
                   <template v-else>
                     <BaseInput
-                      v-model="localOffline.secret"
+                      v-model="localEventNotify.secret"
                       label="加签密钥（可选）"
                       type="password"
                       placeholder="仅在机器人开启加签时填写 SEC..."
@@ -2240,20 +2240,20 @@ async function handleResetSystemConfig() {
                   </template>
 
                   <BaseInput
-                    v-model="localOffline.title"
+                    v-model="localEventNotify.title"
                     label="标题"
                     type="text"
                     placeholder="{accountName} 已离线"
                   />
                   <BaseInput
-                    v-model.number="localOffline.offlineDeleteSec"
+                    v-model.number="localEventNotify.offlineDeleteSec"
                     label="离线删除账号 (秒)"
                     type="number"
                     min="0"
                     placeholder="0 表示不删除"
                   />
                   <BaseInput
-                    v-model="localOffline.msg"
+                    v-model="localEventNotify.msg"
                     label="内容"
                     type="text"
                     placeholder="农场连接已断开，重新扫码登录即可继续。"
