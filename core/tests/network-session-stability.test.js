@@ -1,62 +1,93 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
 const { EventEmitter } = require('node:events');
-const { createRequire } = require('node:module');
 const test = require('node:test');
 const { CONFIG } = require('../dist/config/config');
 const { loadProto, types } = require('../dist/utils/proto');
 
+// 拆分后 network 由 src/utils/network/ 下多个模块组成，测试直接 require 子模块并替换
+// 公开接缝（S.createSocket / S.scheduler / S.now / codec.sendMsgAsync …），不再整文件塞进 VM。
+const stateMod = require('../dist/utils/network/state');
+const codecMod = require('../dist/utils/network/codec');
+const keepaliveMod = require('../dist/utils/network/keepalive');
+const loginMod = require('../dist/utils/network/login');
+const sessionMod = require('../dist/utils/network/session');
+const connectionMod = require('../dist/utils/network/connection');
+
 function harness() {
-    const filename = path.resolve(__dirname, '../dist/utils/network.js');
-    const realRequire = createRequire(filename);
+    const { S } = stateMod;
     const tasks = new Map();
     const requests = [];
     const sockets = [];
     let mono = 0;
     let wall = 100000;
+
+    // 子模块共享同一份单例状态，每个 harness 先复位到干净基线
+    S.ws = null;
+    S.connection = null;
+    S.nextConnectionId = 1;
+    S.clientSeq = 1;
+    S.serverSeq = 0;
+    S.pending = new Map();
+    S.queue.length = 0;
+    S.nextRequestId = 1;
+    S.wsError = { code: 0, at: 0, message: '' };
+    S.lastPressureLogAt = 0;
+    S.heartbeatMisses = 0;
+    S.now = () => mono;
+    S.lastInboundMono = 0;
+    S.lastHeartbeatMono = 0;
+    S.events.removeAllListeners();
+    S.scheduler = {
+        setIntervalTask: (key, _ms, fn) => tasks.set(key, fn),
+        setTimeoutTask: (key, _ms, fn) => tasks.set(key, fn),
+        clear: key => tasks.delete(key),
+        clearAll: () => tasks.clear(),
+    };
+
     class Socket extends EventEmitter {
         static OPEN = 1;
+
         readyState = 1;
-        constructor(url, options) { super(); this.url = url; this.options = options; sockets.push(this); }
-        terminate() { this.terminated = true; this.emit('close', 1006); }
-        close() { this.emit('close', 1000); }
+
+        constructor(url, options) {
+            super();
+            this.url = url;
+            this.options = options;
+            sockets.push(this);
+        }
+
+        terminate() {
+            this.terminated = true;
+            this.emit('close', 1006);
+        }
+
+        close() {
+            this.emit('close', 1000);
+        }
     }
-    const overrides = {
-        ws: Socket,
-        'node:perf_hooks': { performance: { now: () => mono } },
-        '../services/scheduler': { createScheduler: () => ({
-            setIntervalTask: (key, _ms, fn) => tasks.set(key, fn),
-            setTimeoutTask: (key, _ms, fn) => tasks.set(key, fn),
-            clear: key => tasks.delete(key), clearAll: () => tasks.clear(),
-        }) },
-        '../services/ace': { startAceRuntime() {}, stopAceRuntime() {}, getAceDiagnostics: () => ({}) },
-        '../services/status': { updateStatusFromLogin() {} },
-        './crypto-wasm': { bindUser() {}, getEncryptedInitInfo: () => '', getDiagnostics: () => ({}) },
-        './utils': { toLong: Number, toNum: Number, log() {}, logWarn() {}, syncServerTime() {} },
+    S.createSocket = (url, options) => new Socket(url, options);
+
+    codecMod.sendMsg = async (_context, _service, method, body, options) => {
+        requests.push({ method, body });
+        await options.callback(null, types[`${method}Reply`].encode({ basic: { gid: 1, level: 1 } }).finish());
     };
-    const sandbox = {
-        require: name => overrides[name] || realRequire(name), module: { exports: {} }, exports: {},
-        Buffer, console: { warn() {} }, process, URL, URLSearchParams,
-        Date: class extends Date { static now() { return wall; } }, requests,
-    };
-    vm.runInNewContext(`${fs.readFileSync(filename, 'utf8')}
-        fetchUserSettings = async () => {};
-        sendMsg = async (_context, _service, method, body, options) => {
-            requests.push({ method, body });
-            await options.callback(null, types[method + 'Reply'].encode({ basic: { gid: 1, level: 1 } }).finish());
-        };
-        module.exports.login = () => sendLogin(currentConnection);
-        module.exports.setSender = fn => { sendMsgAsync = fn; };
-        module.exports.snapshot = () => getConnectionDiagnostics(currentConnection);
-    `, sandbox, { filename });
-    const api = sandbox.module.exports;
-    api.setSender(async (_service, method, body) => {
+    // 默认让场景登录回包合法，否则 sendLogin 会走 login_init_failed 并清空调度器
+    codecMod.sendMsgAsync = async (_service, method, body) => {
         requests.push({ method, body });
         return { body: types.PlayerSceneLoginReply.encode({ global_scene_id: 1, farm_scene_ext_data: Buffer.from([8, 1]) }).finish() };
-    });
-    return { api, sockets, requests, tasks, advance: ms => { mono += ms; wall += ms; }, jumpWall: ms => { wall += ms; } };
+    };
+    sessionMod.fetchUserSettings = async () => {};
+
+    const api = {
+        connect: connectionMod.connect,
+        cleanup: connectionMod.cleanup,
+        getWs: connectionMod.getWs,
+        networkEvents: S.events,
+        login: () => loginMod.sendLogin(S.connection),
+        setSender: fn => { codecMod.sendMsgAsync = fn; },
+        snapshot: () => keepaliveMod.getConnectionDiagnostics(S.connection),
+    };
+    return { api, sockets, requests, tasks, advance: (ms) => { mono += ms; wall += ms; }, jumpWall: (ms) => { wall += ms; } };
 }
 
 test('each session pins its platform version from handshake through login and heartbeat', async () => {

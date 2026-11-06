@@ -204,64 +204,73 @@ test('empty AntiData replies and local processing failures remain distinguishabl
 
 test('session summaries retain heartbeat outcomes and isolate a late completion from the next connection', async () => {
     await loadProto();
-    const filename = path.resolve(__dirname, '../dist/utils/network.js');
-    const realRequire = createRequire(filename);
+    const { S } = require('../dist/utils/network/state');
+    const codecMod = require('../dist/utils/network/codec');
+    const keepaliveMod = require('../dist/utils/network/keepalive');
+    const connectionMod = require('../dist/utils/network/connection');
+    const utilsMod = require('../dist/utils/utils');
+    const aceMod = require('../dist/services/ace');
+    const cryptoWasmMod = require('../dist/utils/crypto-wasm');
+
     const tasks = new Map();
     const logs = [];
     let now = 100000;
+    S.events.removeAllListeners();
+    S.ws = null;
+    S.connection = null;
+    S.heartbeatMisses = 0;
+    S.now = () => now;
+    S.scheduler = {
+        setIntervalTask: (key, _ms, fn) => tasks.set(key, fn),
+        setTimeoutTask: (key, _ms, fn) => tasks.set(key, fn),
+        clear: key => tasks.delete(key),
+        clearAll: () => tasks.clear(),
+    };
     class Socket {
         static OPEN = 1;
+
         readyState = 1;
+
         on() { return this; }
+
         close() {}
     }
-    const overrides = {
-        ws: Socket,
-        'node:perf_hooks': { performance: { now: () => now } },
-        '../services/scheduler': { createScheduler: () => ({
-            setIntervalTask: (key, _ms, fn) => tasks.set(key, fn),
-            clear: key => tasks.delete(key), clearAll: () => tasks.clear(),
-        }) },
-        '../services/ace': { stopAceRuntime() {}, getAceDiagnostics: () => ({ replies: 7 }) },
-        './crypto-wasm': { getDiagnostics: () => ({ ready: true }) },
-        './utils': { toLong: Number, toNum: Number, log: (...args) => logs.push(args), logWarn() {}, syncServerTime() {} },
+    S.createSocket = () => new Socket();
+    utilsMod.log = (...args) => logs.push(args);
+    aceMod.stopAceRuntime = () => {};
+    aceMod.getAceDiagnostics = () => ({ replies: 7 });
+    cryptoWasmMod.getDiagnostics = () => ({ ready: true });
+
+    const activate = () => {
+        S.connection.phase = 'online';
+        S.connection.onlineMono = S.now();
+        S.user.gid = 1;
+        keepaliveMod.startHeartbeat(S.connection);
     };
-    const sandbox = {
-        require: name => overrides[name] || realRequire(name), module: { exports: {} }, exports: {},
-        Buffer, console, process, URL, URLSearchParams, Date: { now: () => now },
-    };
-    vm.runInNewContext(`${fs.readFileSync(filename, 'utf8')}
-        module.exports.activate = () => {
-            currentConnection.phase = 'online';
-            currentConnection.onlineMono = performance.now();
-            userState.gid = 1;
-            startHeartbeat(currentConnection);
-        };
-        module.exports.setSender = fn => { sendMsgAsync = fn; };
-        module.exports.snapshot = () => getConnectionDiagnostics(currentConnection);
-    `, sandbox, { filename });
-    const network = sandbox.module.exports;
+    const setSender = fn => { codecMod.sendMsgAsync = fn; };
+    const snapshot = () => keepaliveMod.getConnectionDiagnostics(S.connection);
     const heartbeat = () => tasks.get('heartbeat_interval')();
-    const counts = () => JSON.parse(JSON.stringify(network.snapshot().heartbeat));
-    network.connect('synthetic-code');
-    assert.equal(network.snapshot().onlineAgeMs, 0);
-    assert.equal(network.snapshot().heartbeat, null);
-    assert.equal(network.snapshot().ace, null);
+
+    connectionMod.connect('synthetic-code');
+    assert.equal(snapshot().onlineAgeMs, 0);
+    assert.equal(snapshot().heartbeat, null);
+    assert.equal(snapshot().ace, null);
     now += 1000;
-    network.activate();
-    network.setSender(async () => ({ body: Buffer.alloc(0) }));
+    activate();
+    setSender(async () => ({ body: Buffer.alloc(0) }));
     await heartbeat();
-    network.setSender(async () => { throw new Error('network timeout'); });
+    setSender(async () => { throw new Error('network timeout'); });
     await heartbeat();
-    network.setSender(async () => ({ body: Buffer.alloc(0) }));
+    setSender(async () => ({ body: Buffer.alloc(0) }));
     await heartbeat();
+    const counts = () => JSON.parse(JSON.stringify(snapshot().heartbeat));
     assert.deepEqual(counts(), { attempts: 3, replies: 2, failures: 1 });
-    assert.equal(network.snapshot().heartbeatMissCount, 0);
+    assert.equal(snapshot().heartbeatMissCount, 0);
     let finish;
-    network.setSender(() => new Promise(resolve => { finish = resolve; }));
+    setSender(() => new Promise((resolve) => { finish = resolve; }));
     const pending = heartbeat();
     now += 5000;
-    network.cleanup('test stop');
+    connectionMod.cleanup('test stop');
     const summary = logs.find(([, , meta]) => meta?.event === 'connection_summary')[2];
     assert.equal(summary.intentionalClose, true);
     assert.equal(summary.source, 'intentional_close');
@@ -269,51 +278,58 @@ test('session summaries retain heartbeat outcomes and isolate a late completion 
     assert.equal(summary.diagnostics.connectionAgeMs, 6000);
     assert.equal(summary.diagnostics.heartbeat.attempts, 4);
     assert.equal(summary.diagnostics.ace.replies, 7);
-    network.connect('synthetic-next-code');
-    assert.equal(network.snapshot().ace, null);
-    network.activate();
+    connectionMod.connect('synthetic-next-code');
+    assert.equal(snapshot().ace, null);
+    activate();
     finish({ body: Buffer.alloc(0) });
     await pending;
     assert.deepEqual(counts(), { attempts: 0, replies: 0, failures: 0 });
     assert.equal(summary.diagnostics.heartbeat.replies, 2);
-    network.cleanup();
+    connectionMod.cleanup();
 });
 
 test('kickout and close snapshots preserve diagnostics before cleanup', async () => {
     await loadProto();
-    const filename = path.resolve(__dirname, '../dist/utils/network.js');
-    const realRequire = createRequire(filename);
+    const { S } = require('../dist/utils/network/state');
+    const messagesMod = require('../dist/utils/network/messages');
+    const keepaliveMod = require('../dist/utils/network/keepalive');
+    const aceMod = require('../dist/services/ace');
+    const cryptoWasmMod = require('../dist/utils/crypto-wasm');
+
     let destroyed = false;
-    const overrides = {
-        ws: { OPEN: 1 },
-        '../services/scheduler': { createScheduler: () => ({ clear() {}, clearAll() {} }) },
-        '../services/ace': { stopAceRuntime() { destroyed = true; }, getAceDiagnostics: () => ({ replies: 7 }) },
-        './crypto-wasm': { getDiagnostics: () => ({ ready: !destroyed, unsupportedAceVmCalls: 1 }) },
-        './utils': { toLong: Number, toNum: Number, log() {}, logWarn() {} },
-    };
-    const sandbox = { require: name => overrides[name] || realRequire(name), module: { exports: {} }, exports: {}, Buffer, console, process };
-    vm.runInNewContext(`${fs.readFileSync(filename, 'utf8')}
-        module.exports.inspectNotify = handleNotify;
-        module.exports.installConnection = () => {
-            ws = { readyState: 1, close() {} };
-            currentConnection = { id: 1, socket: ws, phase: 'online', intentionalClose: false, finalized: false, loginInitialized: true, startedMono: performance.now() - 1000 };
+    S.events.removeAllListeners();
+    S.now = () => Date.now();
+    S.scheduler = { setIntervalTask() {}, setTimeoutTask() {}, clear() {}, clearAll() {} };
+    aceMod.stopAceRuntime = () => { destroyed = true; };
+    aceMod.getAceDiagnostics = () => ({ replies: 7 });
+    cryptoWasmMod.getDiagnostics = () => ({ ready: !destroyed, unsupportedAceVmCalls: 1 });
+
+    const install = () => {
+        S.ws = { readyState: 1, close() {} };
+        S.connection = {
+            id: 1,
+            socket: S.ws,
+            phase: 'online',
+            intentionalClose: false,
+            finalized: false,
+            loginInitialized: true,
+            startedMono: S.now() - 1000,
         };
-        module.exports.disconnect = () => finalizeConnection(currentConnection, { source: 'ws_close', code: 1006 });
-    `, sandbox, { filename });
-    const network = sandbox.module.exports;
-    network.installConnection();
+    };
+    install();
+
     let kicked;
     let closed;
-    network.networkEvents.on('kickout', value => { kicked = value; });
-    network.networkEvents.on('disconnected', value => { closed = value; });
+    S.events.on('kickout', (value) => { kicked = value; });
+    S.events.on('disconnected', (value) => { closed = value; });
     const event = types.EventMessage.encode(types.EventMessage.create({
         message_type: 'gamepb.userpb.KickoutNotify',
         body: types.KickoutNotify.encode(types.KickoutNotify.create({ reason: 2, reason_message: 'test kickout' })).finish(),
     })).finish();
-    network.inspectNotify({ body: event });
+    messagesMod.handleNotify({ body: event });
     assert.equal(kicked.reasonCode, 2);
     assert.equal(kicked.diagnostics.tsdk.unsupportedAceVmCalls, 1);
-    network.disconnect();
+    keepaliveMod.finalizeConnection(S.connection, { source: 'ws_close', code: 1006 });
     assert.equal(closed.code, 1006);
     assert.equal(closed.diagnostics.tsdk.ready, true);
     assert.equal(closed.diagnostics.ace.replies, 7);
