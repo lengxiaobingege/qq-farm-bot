@@ -34,16 +34,16 @@ function createReloginReminderService(options: ReloginReminderOptions) {
 
     function resolvePushChannel(): { ok: true; channel: string; endpoint: string; token: string; secret: string } | { ok: false; reason: string } {
         const cfg = store.getOfflineReminder ? store.getOfflineReminder() : null;
-        if (!cfg) return { ok: false, reason: '未找到下线提醒配置' };
+        if (!cfg) return { ok: false, reason: '未找到事件通知配置' };
 
         const channel = String(cfg.channel || '').trim().toLowerCase();
         const endpoint = String(cfg.endpoint || '').trim();
         const token = String(cfg.token || '').trim();
         const secret = String(cfg.secret || '').trim();
-        if (!channel) return { ok: false, reason: '下线提醒配置不完整' };
+        if (!channel) return { ok: false, reason: '事件通知配置不完整' };
         if (channel === 'webhook' && !endpoint) return { ok: false, reason: 'Webhook 渠道未设置接口地址' };
         if (channel === 'dingtalk' && !endpoint && !token) return { ok: false, reason: '钉钉渠道未设置 Webhook 地址' };
-        if (channel !== 'webhook' && channel !== 'dingtalk' && !token) return { ok: false, reason: '下线提醒渠道未设置 Token' };
+        if (channel !== 'webhook' && channel !== 'dingtalk' && !token) return { ok: false, reason: '事件通知渠道未设置 Token' };
         return { ok: true, channel, endpoint, token, secret };
     }
 
@@ -102,11 +102,11 @@ function createReloginReminderService(options: ReloginReminderOptions) {
             const accountId = String(payload.accountId || '').trim();
             const accountName = String(payload.accountName || '').trim();
             const reason = String(payload.reason || 'unknown');
-            log('系统', `触发下线提醒: 账号=${accountName || accountId}, 原因=${reason}`, { accountId, accountName, reason });
+            log('系统', `触发事件通知: 账号=${accountName || accountId}, 原因=${reason}`, { accountId, accountName, reason });
 
             const cfg = store.getOfflineReminder ? store.getOfflineReminder() : null;
             if (!cfg) {
-                log('错误', '未找到下线提醒配置');
+                log('错误', '未找到事件通知配置');
                 return;
             }
 
@@ -118,13 +118,13 @@ function createReloginReminderService(options: ReloginReminderOptions) {
             const baseTitle = renderTemplate(String(cfg.title || '').trim(), vars);
             const content = renderTemplate(String(cfg.msg || '').trim(), vars);
             if (!baseTitle || !content) {
-                log('错误', '下线提醒配置不完整');
+                log('错误', '事件通知配置不完整');
                 return;
             }
 
-            await sendConfiguredPush({ title: baseTitle, content, accountId, accountName, logLabel: '下线提醒' });
+            await sendConfiguredPush({ title: baseTitle, content, accountId, accountName, logLabel: '事件通知' });
         } catch (e: any) {
-            log('错误', `下线提醒发送异常: ${e.message}`);
+            log('错误', `事件通知发送异常: ${e.message}`);
         }
     }
 

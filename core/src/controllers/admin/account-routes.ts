@@ -381,7 +381,7 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
         }
     });
 
-    // API: 保存下线提醒配置
+    // API: 保存事件通知配置
     app.post('/api/settings/offline-reminder', async (req: Request, res: Response) => {
         try {
             const body = (req.body && typeof req.body === 'object') ? req.body : {};
@@ -427,7 +427,7 @@ function mountAccountRoutes(app: Application, ctx: AdminContext): void {
         }
     });
 
-    // API: 测试下线提醒推送（不落盘）
+    // API: 测试事件通知推送（不落盘）
     app.post('/api/settings/offline-reminder/test', async (req: Request, res: Response) => {
         try {
             const saved = store.getOfflineReminder ? store.getOfflineReminder() : {};

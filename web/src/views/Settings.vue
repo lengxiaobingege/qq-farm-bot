@@ -1265,7 +1265,7 @@ async function handleSaveOffline() {
     const res = await settingStore.saveOfflineConfig(localOffline.value)
 
     if (res.ok) {
-      showAlert('下线提醒设置已保存', 'primary')
+      showAlert('事件通知设置已保存', 'primary')
     }
     else {
       showAlert(`保存失败: ${res.error || '未知错误'}`, 'danger')
@@ -2184,10 +2184,10 @@ async function handleResetSystemConfig() {
                   </div>
                   <div>
                     <h4 class="text-base text-gray-900 font-bold dark:text-gray-100">
-                      下线提醒
+                      事件通知
                     </h4>
                     <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                      配置一次即可同时用于账号离线、登录成功、自动重登失败与活动结算提醒。标题和内容可用 {accountName} 插入账号名。
+                      配置一次即可同时用于登录成功、账号离线、自动重登失败与活动结算提醒。标题和内容可用 {accountName} 插入账号名。
                     </p>
                   </div>
                 </div>
@@ -2278,7 +2278,7 @@ async function handleResetSystemConfig() {
                     :disabled="offlineTesting"
                     @click="handleSaveOffline"
                   >
-                    保存下线提醒设置
+                    保存事件通知设置
                   </BaseButton>
                 </div>
               </section>
