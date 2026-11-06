@@ -19,7 +19,9 @@ QQ、微信的官方 PlayerLogin 和 Heartbeat 均为 `1.16.0.5_20261028`。微�
 
 微信的握手、登录及心跳核对为 `1.15.1.4_20261001`，独立维护默认值、更新时间、自定义配置和连接快照。
 
-微信采用独立 TSDK `v3.9.0.1792565883`，WASM 大小 161,135 bytes，SHA-256 为 `9c8b1ca061d8e122dd902ff651755d9d2f2006fdf5483765bffd9b9c10aee6ad`。
+微信采用独立 TSDK `v3.9.0.1792565883`，WASM 大小 161,135 bytes，SHA-256 为 `9c8b1ca061d8e122dd902ff651755d9d2f2006fdf5483765bffd9b9c10aee6ad`。QQ 同步到 `v3.9.0.1792566360`，不共用微信 WASM。
+
+2026-11-04 双端更新后，QQ TSDK 更换为 `v3.9.0.1793764291`（`tsdk.wasm`，160,977 bytes，SHA-256 `253033edbfa7bde60de71f198d207cc862b0db479ab843ec61099e1f24360165`），微信 TSDK 更换为 `v3.9.0.1793763796`（`tsdk-wx.wasm`，161,040 bytes，SHA-256 `41e5e9c01e8168e2caeaefcbff346252edfbede693b88fcae041f2eb3bffc87`）；双端客户端版本同步为 `1.16.3.8_20261028`，以 2026-11-04 官方抓包核验。以上值与 `core/src/utils/tsdk-runtime.ts` 及 `core/tests/tsdk-runtime.test.js` 中的审计常量保持一致。
 
 微信设备平台文本按官方格式转成小写，调试枚举仍为 `2`。环境探测接口及 ACEVM 尚未在 Node.js 中完整实现，缺失能力不会报告为通过。资源更新不能据此视为掉线问题已解决。
 
