@@ -2187,7 +2187,7 @@ async function handleResetSystemConfig() {
                       下线提醒
                     </h4>
                     <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                      账号离线后的通知与清理。标题和内容可用 {accountName} 插入账号名。
+                      配置一次即可同时用于账号离线、登录成功、自动重登失败与活动结算提醒。标题和内容可用 {accountName} 插入账号名。
                     </p>
                   </div>
                 </div>
