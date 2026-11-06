@@ -51,6 +51,6 @@ const st = {
 };
 
 const AUTO_LOGIN_MAX_FAILS = 3;
-const AUTO_LOGIN_RETRY_DELAY_MS = 10000;
+const AUTO_LOGIN_RETRY_DELAY_MS = 30000;
 
 module.exports = { st, workerConfig, AUTO_LOGIN_MAX_FAILS, AUTO_LOGIN_RETRY_DELAY_MS };
