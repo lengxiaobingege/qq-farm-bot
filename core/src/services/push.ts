@@ -153,7 +153,8 @@ async function sendPushooMessage(payload: any = {}): Promise<{ ok: boolean; code
     const hasError: boolean = !!(raw && raw.error);
     const code: string = String(raw.code || raw.errcode || (hasError ? 'error' : 'ok'));
     const message: string = String(raw.msg || raw.errmsg || raw.message || (hasError ? (raw.error.message || 'push failed') : 'ok'));
-    const ok: boolean = !hasError && (code === 'ok' || code === '0' || code === '' || String(raw.status || '').toLowerCase() === 'success');
+    // pushoo 各渠道成功码不统一：部分返回 ok/0/空，Push Plus 等返回 HTTP 语义的 200
+    const ok: boolean = !hasError && (code === 'ok' || code === '0' || code === '200' || code === '' || String(raw.status || '').toLowerCase() === 'success');
 
     return {
         ok,
