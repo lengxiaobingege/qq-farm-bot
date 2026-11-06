@@ -116,8 +116,9 @@ function addOrUpdateAccount(acc: Partial<Account> & { avatarUrl?: string }): Acc
             updatedAt: Date.now(),
         };
         // 微信扫码会话字段必须在新建时就保留，否则掉线后无法自动重登
+        const accRecord = acc as Record<string, any>;
         for (const key of ['loginBuffer', 'wxOpenId', 'wxAccessToken', 'wxRefreshToken', 'wxExpiresAt', 'wxExpiresIn', 'wxLoginType', 'wxRefreshTokenObservedAt', 'wechatAutoRelogin']) {
-            if (acc[key] !== undefined) created[key] = acc[key];
+            if (accRecord[key] !== undefined) created[key] = accRecord[key];
         }
         if (created.loginBuffer) created.hasLoginBuffer = true;
         if (created.code) created.hasCode = true;

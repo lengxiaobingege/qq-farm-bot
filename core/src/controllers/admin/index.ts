@@ -36,13 +36,14 @@ let ctx: AdminContext | null = null;
 function startAdminServer(dataProvider: any): void {
     if (ctx) return;
 
-    ctx = createAdminContext(dataProvider);
+    const adminCtx = createAdminContext(dataProvider);
+    ctx = adminCtx;
 
     const app = express();
     app.set('trust proxy', true);
     app.use(express.json());
 
-    ctx.app = app;
+    adminCtx.app = app;
 
     // 收紧跨域：仅白名单/同源可访问，其余跨域请求（含预检）直接 403
     app.use((req: any, res: any, next: any) => {
@@ -60,13 +61,13 @@ function startAdminServer(dataProvider: any): void {
     app.use('/game-config', express.static(getResourcePath('gameConfig')));
 
     // Mount route modules
-    mountAuthRoutes(app, ctx);
-    mountWxLoginRoutes(app, ctx);
-    mountFarmRoutes(app, ctx);
-    mountFriendRoutes(app, ctx);
-    mountAccountRoutes(app, ctx);
-    mountActivityCenterRoutes(app, ctx);
-    mountCommerceRoutes(app, ctx);
+    mountAuthRoutes(app, adminCtx);
+    mountWxLoginRoutes(app, adminCtx);
+    mountFarmRoutes(app, adminCtx);
+    mountFriendRoutes(app, adminCtx);
+    mountAccountRoutes(app, adminCtx);
+    mountActivityCenterRoutes(app, adminCtx);
+    mountCommerceRoutes(app, adminCtx);
 
     // SPA fallback
     app.get('*', (req: any, res: any) => {
@@ -81,12 +82,12 @@ function startAdminServer(dataProvider: any): void {
     });
 
     const port: number = CONFIG.adminPort || 3007;
-    ctx.server = app.listen(port, '0.0.0.0', () => {
+    adminCtx.server = app.listen(port, '0.0.0.0', () => {
         adminLogger.info('admin panel started', { url: `http://localhost:${port}`, port });
     });
 
     // Setup Socket.IO
-    setupSocketIO(ctx);
+    setupSocketIO(adminCtx);
 
 }
 

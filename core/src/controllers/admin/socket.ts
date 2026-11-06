@@ -68,8 +68,9 @@ function setupSocketIO(ctx: AdminContext): void {
             credentials: true,
         },
     });
+    const io = ctx.io!; // 上一行刚赋值，运行时必不为空
 
-    ctx.io.use((socket: any, next: (err?: Error) => void) => {
+    io.use((socket: any, next: (err?: Error) => void) => {
         const authToken = socket.handshake.auth && socket.handshake.auth.token
             ? String(socket.handshake.auth.token)
             : '';
@@ -84,7 +85,7 @@ function setupSocketIO(ctx: AdminContext): void {
         return next();
     });
 
-    ctx.io.on('connection', (socket: any) => {
+    io.on('connection', (socket: any) => {
         const initialAccountRef = (socket.handshake.auth && socket.handshake.auth.accountId)
             || (socket.handshake.query && socket.handshake.query.accountId)
             || '';

@@ -158,7 +158,7 @@ class RequestQueue {
                         error: error.message,
                     });
                     await sleep(DEFAULT_CONFIG.retryDelay * task.attempts);
-                    this.queue.enqueue(task, -task.priority || 0);
+                    this.queue.enqueue(task, -(task.priority ?? 0));
                 } else {
                     task.reject(error);
                 }

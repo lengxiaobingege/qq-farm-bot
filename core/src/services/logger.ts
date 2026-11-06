@@ -56,7 +56,7 @@ function ensureFallbackLogDir(): string {
     const dir = path.join(dataDir, 'logs');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fallbackLogDir = dir;
-    return fallbackLogDir;
+    return dir;
 }
 
 function appendFallbackLog(level: string, moduleName: string, message: string, meta: any): void {

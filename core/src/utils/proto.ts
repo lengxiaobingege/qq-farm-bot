@@ -1,3 +1,5 @@
+// @ts-nocheck
+// 渐进 strict 白名单：protobuf 生成代码/TSDK 运行时为动态结构密集区，待专项收敛后移除
 import type protobuf from 'protobufjs';
 
 export {};

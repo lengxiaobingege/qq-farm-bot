@@ -30,7 +30,7 @@ function buildHarvestEvents(lands: any[], nowSec: number, getPlant = getPlantByI
         const finalName = configuredPhases.at(-1)?.split(':')[0];
         const explicitMature = phases.find((phase: any) => [6, 19].includes(num(phase.phase)) || num(phase.phase_id) === 19);
         const finalPhase = phases.at(-1);
-        const mature = explicitMature || (['成熟', '盛开'].includes(finalName)
+        const mature = explicitMature || (['成熟', '盛开'].includes(finalName ?? '')
             && plant.phases.length <= configuredPhases.length && num(finalPhase?.phase) === 2 ? finalPhase : null);
         if (!mature) continue;
         // Missing server bonus data is unknown, not a zero bonus guessed from the soil colour.
@@ -82,7 +82,7 @@ function getLevelForecast(user: any, progress: any, stats: any, automation: any,
     const valid = snapshot && snapshot.gid === num(user.gid) && snapshot.exp === num(user.exp)
         && nowSec >= snapshot.at && nowSec - snapshot.at <= SNAPSHOT_MAX_AGE_SEC;
     const sessionSeconds = Math.max(0, num(stats.sessionElapsedSeconds));
-    return calculateLevelForecast({ lands: valid ? snapshot.lands : [], nowSec,
+    return calculateLevelForecast({ lands: valid && snapshot ? snapshot.lands : [], nowSec,
         remainingExp: progress ? num(progress.needed) - num(progress.current) : 0,
         historyRate: sessionSeconds >= HISTORY_MIN_SECONDS ? Math.max(0, num(stats.sessionExpGained)) / sessionSeconds * 3600 : 0,
         connected: !!stats.connection?.connected, autoHarvest: !!automation?.farm, quiet });

@@ -260,7 +260,7 @@ function createPetDiaryService(deps: any) {
                 const treasure = friend.treasures.find(t => t.id === String(input?.treasureId));
                 if (!treasure || treasure.status !== 2 || !treasure.previews.some(p => p.challengeId === challengeId && p.canStart)) fail('好友宝藏状态已变化，请重新查看');
                 if (!costsAvailable([{ id: challengeId, count: '1' }], await balances())) fail('对应挑战书不足');
-                params = { defender_gid: gid, treasure_id: treasure.id, challenge_item_id: challengeId };
+                params = { defender_gid: gid, treasure_id: treasure!.id, challenge_item_id: challengeId };
             } else if (action === 'skipBattle') {
                 if (typeof input?.skip !== 'boolean') fail('跳过动画设置无效');
                 params = { skip: input.skip };
