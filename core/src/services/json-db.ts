@@ -55,17 +55,20 @@ function readJsonFileStrict(filePath: string, fallbackFactory?: () => any): any 
     }
 }
 
-function writeJsonFileAtomic(filePath: string, data: any, space = 2): void {
+function writeJsonFileAtomic(filePath: string, data: any, space = 2, mode?: number): void {
     const json = JSON.stringify(data, null, space);
-    writeTextFileAtomic(filePath, json);
+    writeTextFileAtomic(filePath, json, mode);
 }
 
-function writeTextFileAtomic(filePath: string, text = ''): void {
+// mode 用于收紧敏感文件权限（如 0o600）：rename 保留临时文件的权限位，
+// 因此先以指定 mode 写临时文件再改名，可保证目标文件从一开始就不是宽权限。
+function writeTextFileAtomic(filePath: string, text = '', mode?: number): void {
     ensureParentDir(filePath);
     const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
 
     try {
-        fs.writeFileSync(tmpPath, String(text), 'utf8');
+        fs.writeFileSync(tmpPath, String(text), { encoding: 'utf8', ...(mode ? { mode } : {}) });
+        if (mode) fs.chmodSync(tmpPath, mode);
         fs.renameSync(tmpPath, filePath);
     } finally {
         try {

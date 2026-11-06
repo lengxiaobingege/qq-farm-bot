@@ -11,6 +11,7 @@ const { createWechatAutoReloginService } = require('./wechat-auto-relogin');
 const { createScheduler } = require('../services/scheduler');
 const { createRuntimeState } = require('./runtime-state');
 const { createWorkerManager } = require('./worker-manager');
+const { tightenDataFilePerms } = require('../utils/data-file-permissions');
 
 const OPERATION_KEYS = ['harvest', 'farming', 'fertilize', 'plant', 'steal', 'helpFarming', 'taskClaim', 'sell', 'upgrade'];
 
@@ -191,6 +192,9 @@ function createRuntimeEngine(options: RuntimeEngineOptions = {}) {
     async function start(options: { startAdminServer?: boolean; autoStartAccounts?: boolean } = {}): Promise<void> {
         const shouldStartAdminServer = options.startAdminServer !== false;
         const shouldAutoStartAccounts = options.autoStartAccounts !== false;
+
+        // master 启动即巡检敏感文件权限（历史文件可能是 0644）
+        tightenDataFilePerms();
 
         const savedSystemConfig = store.getSystemConfig();
         if (savedSystemConfig) {

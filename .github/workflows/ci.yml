@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 安装 pnpm
+        run: npm install -g pnpm@10
+
+      - name: 安装依赖
+        run: pnpm install -r --prod=false
+
+      - name: core 类型检查
+        run: pnpm -C core typecheck
+
+      - name: core 构建
+        run: pnpm -C core build:ts
+
+      - name: core 测试
+        run: node --test tests/*.test.js
+        working-directory: core
+
+      - name: web 构建
+        run: pnpm build:web
+
+      - name: web 测试
+        run: node --test tests/*.test.mjs
+        working-directory: web

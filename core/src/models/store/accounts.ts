@@ -30,7 +30,8 @@ function saveAccounts(data: AccountsData): void {
     try {
         ensureDataDir();
         normalized = normalizeAccountsData(data);
-        writeJsonFileAtomic(ACCOUNTS_FILE, normalized);
+        // 登录态（loginBuffer/refreshToken）属敏感数据：0600 权限
+        writeJsonFileAtomic(ACCOUNTS_FILE, normalized, 2, 0o600);
     }
     catch (error: any) { throw storageError('保存', ACCOUNTS_FILE, error); }
     accountsCache = normalized;

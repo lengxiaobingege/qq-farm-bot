@@ -1,6 +1,7 @@
 export {};
 const fs = require('node:fs');
 const { getDataFile, ensureDataDir } = require('../config/runtime-paths');
+const { writeJsonFileAtomic } = require('../services/json-db');
 const security = require('./auth-security');
 
 const ADMIN_FILE: string = getDataFile('admin.json');
@@ -33,7 +34,8 @@ function normalizeAdmin(raw: any): AdminRecord | null {
 function saveAdmin(): void {
     ensureDataDir();
     if (!admin) return;
-    fs.writeFileSync(ADMIN_FILE, JSON.stringify({ admin }, null, 2), 'utf8');
+    // 密码哈希属敏感数据：原子写 + 0600 权限
+    writeJsonFileAtomic(ADMIN_FILE, { admin }, 2, 0o600);
 }
 
 function loadAdmin(): AdminRecord {

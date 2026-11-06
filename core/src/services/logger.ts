@@ -4,10 +4,13 @@ const path = require('node:path');
 const { ensureDataDir } = require('../config/runtime-paths');
 
 let winston: any = null;
+let DailyRotateFileTransport: any = null;
 try {
     winston = require('winston');
+    DailyRotateFileTransport = require('winston-daily-rotate-file');
 } catch {
     winston = null;
+    DailyRotateFileTransport = null;
 }
 
 const DIAGNOSTIC_CODE_KEY_RE = /^(?:disconnect|close|error|http|status|exit|reason)Code$/i;
@@ -117,6 +120,34 @@ function getRootLogger(): any {
     const logDir = path.join(dataDir, 'logs');
     if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
+    // 一次性迁移旧版无轮转日志文件，避免遗留文件无限增长：
+    // 改名带 legacy 标记，14 天后随下方的清理函数按 mtime 删除
+    for (const legacyName of ['combined.log', 'error.log']) {
+        const legacyPath = path.join(logDir, legacyName);
+        try {
+            if (fs.existsSync(legacyPath)) {
+                fs.renameSync(legacyPath, path.join(logDir, legacyName.replace('.log', '-legacy.log')));
+            }
+        } catch {
+            // 迁移失败不影响日志初始化
+        }
+    }
+    // 清理超过 14 天的 legacy 日志与轮转残留
+    try {
+        const cutoff = Date.now() - 14 * 24 * 3600 * 1000;
+        for (const entry of fs.readdirSync(logDir)) {
+            if (!entry.includes('legacy') && !entry.endsWith('.tmp')) continue;
+            const file = path.join(logDir, entry);
+            try {
+                if (fs.statSync(file).mtimeMs < cutoff) fs.unlinkSync(file);
+            } catch {
+                // ignore
+            }
+        }
+    } catch {
+        // ignore
+    }
+
     const level = String(process.env.LOG_LEVEL || 'info').toLowerCase();
     const { combine, timestamp, errors, json, colorize, printf } = winston.format;
 
@@ -144,13 +175,22 @@ function getRootLogger(): any {
                     }),
                 ),
             }),
-            new winston.transports.File({
-                filename: path.join(logDir, 'combined.log'),
+            // 按天轮转：combined 保留 14 天、单文件超 10MB 强制切分；error 保留 30 天
+            new DailyRotateFileTransport({
+                filename: path.join(logDir, 'combined-%DATE%.log'),
+                datePattern: 'YYYY-MM-DD',
+                maxSize: '10m',
+                maxFiles: '14d',
+                auditFile: path.join(logDir, '.combined-audit.json'),
                 format: combine(timestamp({ format: () => beijingIso() }), errors({ stack: true }), json()),
             }),
-            new winston.transports.File({
-                filename: path.join(logDir, 'error.log'),
+            new DailyRotateFileTransport({
+                filename: path.join(logDir, 'error-%DATE%.log'),
+                datePattern: 'YYYY-MM-DD',
                 level: 'error',
+                maxSize: '10m',
+                maxFiles: '30d',
+                auditFile: path.join(logDir, '.error-audit.json'),
                 format: combine(timestamp({ format: () => beijingIso() }), errors({ stack: true }), json()),
             }),
         ],

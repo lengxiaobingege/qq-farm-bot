@@ -2,6 +2,7 @@ export {};
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { getDataFile, ensureDataDir } = require('../config/runtime-paths');
+const { writeJsonFileAtomic } = require('../services/json-db');
 
 const LOGIN_ATTEMPTS_FILE: string = getDataFile('login-attempts.json');
 // 失败锁定按客户端 IP 分桶：单个来源的失败不会把管理员账号整体锁死（防 DoS），
@@ -58,7 +59,7 @@ function loadLoginAttempts(): void {
 function saveLoginAttempts(): void {
     ensureDataDir();
     try {
-        fs.writeFileSync(LOGIN_ATTEMPTS_FILE, JSON.stringify(loginAttempts, null, 2), 'utf8');
+        writeJsonFileAtomic(LOGIN_ATTEMPTS_FILE, loginAttempts, 2, 0o600);
     } catch (e: any) {
         console.error('保存登录尝试记录失败:', e.message);
     }

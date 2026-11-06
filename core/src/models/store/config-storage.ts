@@ -42,7 +42,7 @@ function createConfigStorage(storeFile: string) {
     function writeDocument(file: string, value: any): string {
         try {
             const json = JSON.stringify(value, null, 2);
-            writeTextFileAtomic(file, json);
+            writeTextFileAtomic(file, json, 0o600);
             return json;
         } catch (error: any) {
             throw storageError('保存', file, error);
@@ -83,7 +83,8 @@ function createConfigStorage(storeFile: string) {
         try { json = JSON.stringify(document, null, 2); }
         catch (error: any) { throw storageError('保存', storeFile, error); }
         if (json !== globalJson) {
-            try { writeTextFileAtomic(storeFile, json); }
+            // 全局配置含加密后的凭证，敏感文件用 0600
+            try { writeTextFileAtomic(storeFile, json, 0o600); }
             catch (error: any) { throw storageError('保存', storeFile, error); }
         }
         globalDocument = document;
@@ -156,7 +157,7 @@ function createConfigStorage(storeFile: string) {
             }
             if (globalDocument.accountConfigStorageVersion !== FORMAT_VERSION) saveGlobal(globalDocument);
             if (accountJson.get(id) !== json) {
-                writeTextFileAtomic(file, json);
+                writeTextFileAtomic(file, json, 0o600);
                 accountJson.set(id, json);
             }
         } catch (error: any) {

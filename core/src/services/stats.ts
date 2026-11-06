@@ -2,6 +2,7 @@ export {};
 const path = require('node:path');
 const fs = require('node:fs');
 const { getSystemDateKey } = require('../utils/utils');
+const { writeJsonFileAtomic } = require('./json-db');
 function getStatsFilePath(accountId: string): string {
     const dataDir: string = process.env.FARM_DATA_DIR || path.join(__dirname, '../../data');
     return path.join(dataDir, 'stats', `${accountId}.json`);
@@ -25,14 +26,7 @@ function loadPersistedStats(accountId: string): any {
 
 function savePersistedStats(accountId: string, data: any): void {
     try {
-        const filePath: string = getStatsFilePath(accountId);
-        const dir: string = path.dirname(filePath);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        const tmpPath: string = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-        fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf8');
-        fs.renameSync(tmpPath, filePath);
+        writeJsonFileAtomic(getStatsFilePath(accountId), data);
     } catch {
         // ignore
     }
