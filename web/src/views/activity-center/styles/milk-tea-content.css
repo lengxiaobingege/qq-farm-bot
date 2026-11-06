@@ -1,0 +1,1307 @@
+/* 主页面不设最大宽度，宽度交给外层布局（与其他页面一致）；弹窗页撑满卡片内容区。 */
+.tea-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--ui-ink);
+}
+
+.tea-content--page {
+  padding: 16px 0 32px;
+  container: tea-content / inline-size;
+}
+
+.tea-content--dialog {
+  min-height: 0;
+  flex: 1;
+  container: tea-dialog / inline-size;
+}
+
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+/* —— 通用积木 —— */
+.tea-card {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-card);
+  background: var(--ui-surface);
+}
+
+.tea-section {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tea-section__title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  color: var(--ui-ink);
+  font-size: 14px;
+  font-weight: var(--fw-650);
+}
+
+.tea-section__title small,
+.tea-list-title small {
+  color: var(--ui-subtle);
+  font-size: 12px;
+  font-weight: var(--fw-400);
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-section__toggle {
+  align-self: flex-start;
+  align-items: center;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: var(--fw-650);
+  cursor: pointer;
+}
+
+.tea-section__toggle:hover {
+  color: var(--ui-primary);
+}
+
+.tea-section__chevron {
+  color: var(--ui-subtle);
+  transition: transform var(--spring-drag-duration) var(--spring-drag);
+}
+
+.tea-section__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.tea-note {
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tea-empty {
+  padding: 16px 0;
+  color: var(--ui-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.tea-tag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: var(--ui-primary);
+  background: var(--ui-primary-soft);
+  font-size: 12px;
+  font-weight: var(--fw-600);
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.tea-tag.is-muted {
+  color: var(--ui-muted);
+  background: var(--ui-surface-soft);
+}
+
+.tea-btn-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+/* 道具格：图片井 + 右下角数量 + 单行名称 */
+.tea-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tea-items--center {
+  justify-content: center;
+}
+
+.tea-item {
+  display: flex;
+  width: 72px;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.tea-item__well {
+  position: relative;
+  display: grid;
+  width: 60px;
+  height: 60px;
+  place-items: center;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-surface-soft);
+}
+
+.tea-item__well :deep(.item-image) {
+  width: 82%;
+  height: 82%;
+  border: 0;
+  background: transparent;
+}
+
+.tea-item__well b {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(24, 32, 27, 0.62);
+  font-size: 11px;
+  font-weight: var(--fw-600);
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tea-item__name {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tea-items--sm .tea-item {
+  width: 64px;
+}
+
+.tea-items--sm .tea-item__well {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+}
+
+.tea-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tea-chips span {
+  padding: 1px 9px;
+  border: 1px solid var(--ui-border);
+  border-radius: 999px;
+  color: var(--ui-muted);
+  background: var(--ui-surface-soft);
+  font-size: 12px;
+}
+
+.tea-pick {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 999px;
+  color: var(--ui-muted);
+  background: var(--ui-surface-solid);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.tea-pick:hover {
+  border-color: color-mix(in srgb, var(--ui-primary) 40%, var(--ui-border));
+}
+
+.tea-pick.is-selected {
+  border-color: var(--ui-primary);
+  color: var(--ui-primary);
+  background: var(--ui-primary-soft);
+}
+
+.tea-section__toggle:focus-visible,
+.tea-pick:focus-visible,
+.tea-panel__list:focus-visible,
+.tea-date:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.tea-panel__list:focus-visible {
+  outline-offset: -2px;
+}
+
+/* —— 开店 —— */
+.tea-open {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 20px 32px;
+  padding: 24px;
+}
+
+.tea-content--dialog .tea-open {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.tea-open__intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.tea-open__intro h3 {
+  font-size: 16px;
+  font-weight: var(--fw-650);
+}
+
+.tea-open__intro p {
+  margin-top: 4px;
+  color: var(--ui-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.tea-open__icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--ui-primary);
+  background: var(--ui-primary-soft);
+  font-size: 22px;
+}
+
+.tea-open__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tea-open__names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* —— 我的店铺 —— */
+.tea-shop {
+  display: grid;
+  grid-template-areas:
+    'overview'
+    'ops'
+    'staff'
+    'shelf';
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.tea-shop__overview {
+  grid-area: overview;
+}
+
+.tea-shop__ops {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  grid-area: ops;
+}
+
+.tea-shop__staff {
+  grid-area: staff;
+}
+
+.tea-shop__shelf {
+  grid-area: shelf;
+}
+
+.tea-shop .tea-more {
+  flex: 0 0 auto;
+}
+
+.tea-more :deep(.n-button__icon) {
+  font-size: 18px;
+}
+
+.tea-shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tea-cup {
+  display: grid;
+  grid-template-areas:
+    'well name stock'
+    'well price price';
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-surface);
+}
+
+.tea-cup__well {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--ui-surface-soft);
+}
+
+.tea-cup > .tea-cup__well {
+  grid-area: well;
+}
+
+.tea-cup__well img {
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
+}
+
+.tea-cup strong {
+  min-width: 0;
+  overflow: hidden;
+  grid-area: name;
+  font-size: 14px;
+  font-weight: var(--fw-650);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tea-cup__price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 10px;
+  grid-area: price;
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-cup__price > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.tea-cup__price img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.tea-cup__stock {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  grid-area: stock;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: var(--ui-primary);
+  background: var(--ui-primary-soft);
+  font-size: 11px;
+  font-weight: var(--fw-600);
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.tea-cup.is-locked .tea-cup__well img {
+  filter: grayscale(1);
+  opacity: 0.4;
+}
+
+.tea-cup.is-locked strong {
+  color: var(--ui-muted);
+}
+
+.tea-cup.is-locked .tea-cup__stock {
+  color: var(--ui-subtle);
+  background: var(--ui-surface-soft);
+}
+
+.tea-cashier {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px 20px;
+}
+
+.tea-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.tea-card__head h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: var(--fw-650);
+}
+
+.tea-card__head h3 small {
+  color: var(--ui-subtle);
+  font-size: 12px;
+  font-weight: var(--fw-400);
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-card__head > span {
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 员工位：在岗显示名字与剩余时间，空位用虚线框提示可雇佣 */
+.tea-staff {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px 18px;
+}
+
+.tea-staff__slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tea-staff__slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--ui-surface-soft);
+}
+
+.tea-staff__slot.is-empty {
+  border: 1px dashed var(--ui-border-strong);
+  background: transparent;
+}
+
+.tea-staff__avatar {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--ui-primary);
+  background: var(--ui-primary-soft);
+  font-size: 14px;
+  font-weight: var(--fw-650);
+}
+
+.tea-staff__slot.is-empty .tea-staff__avatar {
+  color: var(--ui-subtle);
+  background: var(--ui-surface-soft);
+}
+
+.tea-staff__who {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.tea-staff__who strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: var(--fw-600);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tea-staff__who small {
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tea-staff__slot.is-empty strong {
+  color: var(--ui-muted);
+}
+
+.tea-staff__time {
+  flex: none;
+  color: var(--ui-ink);
+  font-size: 12px;
+  font-weight: var(--fw-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-cashier__cups {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tea-cashier__cups li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 13px;
+}
+
+.tea-cashier__cups li + li {
+  border-top: 1px dashed var(--ui-border);
+}
+
+.tea-cashier__cups b {
+  font-weight: var(--fw-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-cashier__total {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ui-border);
+}
+
+.tea-cashier__total h4 {
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-weight: var(--fw-600);
+}
+
+.tea-cashier__rewards {
+  gap: 12px 24px;
+}
+
+.tea-cashier__rewards .tea-item {
+  width: auto;
+  max-width: 100%;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.tea-cashier__rewards .tea-item__well {
+  width: 44px;
+  height: 44px;
+  flex: none;
+}
+
+.tea-cashier__reward-details {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tea-cashier__amount {
+  color: var(--ui-ink);
+  font-size: 15px;
+  font-weight: var(--fw-650);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tea-cashier__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tea-make :deep(.n-button__icon) {
+  font-size: 20px;
+}
+
+/* —— 兑换商店 —— */
+.tea-goods {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tea-goods-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 14px 14px;
+  text-align: center;
+}
+
+.tea-goods-card__name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: var(--fw-650);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tea-goods-card__meta {
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-goods-card__meta.is-warning {
+  color: var(--ui-warning);
+}
+
+.tea-goods-card__buy {
+  margin-top: auto;
+}
+
+.tea-goods-card.is-set .tea-items {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.tea-goods-card.is-set .tea-item {
+  width: auto;
+}
+
+.tea-goods-card.is-off .tea-item__well {
+  filter: grayscale(0.6);
+}
+
+.tea-price {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-price > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.tea-price img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+/* —— 活动说明 —— */
+.tea-rules {
+  padding: 16px 24px;
+  column-width: 420px;
+  column-gap: 40px;
+}
+
+.tea-rules p {
+  margin: 0 0 6px;
+  color: var(--ui-muted);
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-line;
+}
+
+.tea-rules p.is-title {
+  margin-top: 12px;
+  color: var(--ui-ink);
+  font-weight: var(--fw-650);
+  break-after: avoid;
+}
+
+.tea-rules p.is-title:first-child {
+  margin-top: 0;
+}
+
+/* —— 弹窗页：工具栏 + 滚动列表 + 底部按钮 —— */
+.tea-panel {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tea-panel--form {
+  gap: 20px;
+  overflow: auto;
+}
+
+.tea-panel__bar {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.tea-panel__hint {
+  min-width: 180px;
+  flex: 1;
+}
+
+.tea-panel__list {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin-inline: -4px;
+  padding: 2px 4px 4px;
+}
+
+.tea-panel__list > .tea-row + .tea-row {
+  margin-top: 8px;
+}
+
+.tea-panel__foot {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.tea-panel--form .tea-panel__foot {
+  justify-content: flex-end;
+}
+
+.tea-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tea-field h4,
+.tea-list-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--ui-ink);
+  font-size: 13px;
+  font-weight: var(--fw-650);
+}
+
+.tea-list-title {
+  margin: 14px 0 6px;
+}
+
+.tea-list-title:first-child {
+  margin-top: 0;
+}
+
+.tea-field__row {
+  display: flex;
+  gap: 8px;
+}
+
+.tea-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-surface-soft);
+}
+
+.tea-switch-row strong {
+  font-size: 14px;
+  font-weight: var(--fw-600);
+}
+
+.tea-inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-muted);
+  font-size: 13px;
+}
+
+.tea-inline-field__select {
+  width: 120px;
+}
+
+.tea-date {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-control, 8px);
+  color: var(--ui-ink);
+  background: var(--ui-surface-solid);
+  font: inherit;
+  font-size: 13px;
+  color-scheme: light dark;
+}
+
+.tea-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--ui-muted);
+  font-size: 13px;
+}
+
+.tea-cost img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.tea-cost b {
+  color: var(--ui-ink);
+  font-weight: var(--fw-650);
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-meter {
+  display: flex;
+  min-width: 200px;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tea-meter__text {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+
+.tea-meter__text b {
+  color: var(--ui-ink);
+  font-size: 15px;
+  font-weight: var(--fw-650);
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-meter__track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ui-surface-soft);
+}
+
+.tea-meter__track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ui-primary);
+  transition: width var(--spring-drag-duration) var(--spring-drag);
+}
+
+/* 列表行卡片：窄屏上下堆叠，宽弹窗见末尾容器查询 */
+.tea-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: var(--ui-surface);
+}
+
+.tea-row.is-next {
+  border-color: color-mix(in srgb, var(--ui-primary) 40%, var(--ui-border));
+  background: var(--ui-primary-soft);
+}
+
+.tea-row.is-done {
+  opacity: 0.55;
+}
+
+.tea-row__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 10px;
+}
+
+.tea-row__head strong {
+  font-size: 15px;
+  font-weight: var(--fw-650);
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-row__head > span:not(.tea-tag) {
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-row__body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tea-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.tea-metrics div {
+  display: flex;
+  gap: 4px;
+}
+
+.tea-metrics dt {
+  color: var(--ui-muted);
+}
+
+.tea-metrics dd {
+  margin: 0;
+  color: var(--ui-ink);
+  font-weight: var(--fw-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-recipe {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.tea-recipe .tea-cup__well {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+}
+
+.tea-recipe__text strong {
+  font-size: 14px;
+  font-weight: var(--fw-650);
+}
+
+.tea-fruits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tea-fruit {
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--ui-surface-soft);
+}
+
+.tea-fruit.is-checked {
+  border-color: color-mix(in srgb, var(--ui-primary) 40%, var(--ui-border));
+  background: var(--ui-primary-soft);
+}
+
+.tea-fruit :deep(.n-checkbox) {
+  width: 100%;
+  align-items: center;
+}
+
+.tea-fruit__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 13px;
+}
+
+.tea-fruit__label b {
+  font-weight: var(--fw-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tea-line {
+  display: flex;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 10px 2px;
+  font-size: 13px;
+}
+
+.tea-line + .tea-line {
+  border-top: 1px solid var(--ui-border);
+}
+
+.tea-line__main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.tea-line__main--stack {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.tea-line__main strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: var(--fw-600);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tea-line__value {
+  color: var(--ui-muted);
+  white-space: nowrap;
+}
+
+.tea-line__value b {
+  color: var(--ui-ink);
+  font-weight: var(--fw-650);
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-time {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-time b {
+  font-weight: var(--fw-600);
+}
+
+.tea-time time {
+  color: var(--ui-subtle);
+  font-size: 11px;
+}
+
+.tea-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 4px;
+}
+
+.tea-stats div {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--ui-surface-soft);
+  text-align: center;
+}
+
+.tea-stats dt {
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+
+.tea-stats dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 18px;
+  font-weight: var(--fw-650);
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-rank {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--ui-muted);
+  background: var(--ui-surface-soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tea-rank.is-top {
+  color: var(--ui-warning);
+  background: var(--ui-warning-soft);
+}
+
+/* 宽屏主页面：店铺左右分栏，收银台吸顶，领取与制作始终在视线内 */
+@container tea-content (min-width: 1080px) {
+  .tea-shop {
+    grid-template-areas:
+      'overview ops'
+      'staff ops'
+      'shelf ops';
+    grid-template-columns: minmax(0, 1fr) 380px;
+    grid-template-rows: auto auto 1fr;
+    gap: 16px 20px;
+  }
+
+  .tea-shop__ops {
+    position: sticky;
+    top: 0;
+  }
+}
+
+/* 宽弹窗：列表一项一行，固定列对齐 */
+@container tea-dialog (min-width: 760px) {
+  .tea-row--level,
+  .tea-row--fund {
+    display: grid;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .tea-row--level {
+    grid-template-columns: 120px minmax(0, 1fr) auto;
+  }
+
+  .tea-row--fund {
+    grid-template-columns: 140px minmax(0, 1fr);
+  }
+
+  .tea-row--level .tea-row__head,
+  .tea-row--fund .tea-row__head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tea-row--level .tea-row__rewards {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+
+  .tea-row--recipe {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 720px) {
+  .tea-open {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 18px;
+  }
+}
+
+@media (max-width: 520px) {
+  .tea-content--page {
+    padding: 12px 0 28px;
+    gap: 14px;
+  }
+
+  .tea-shelf {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+  }
+
+  .tea-cup {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    padding: 10px 12px;
+  }
+
+  .tea-shop .tea-cup__well {
+    width: 44px;
+    height: 44px;
+  }
+
+  .tea-cashier {
+    padding: 16px;
+  }
+
+  .tea-goods {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .tea-goods-card.is-set {
+    grid-column: 1 / -1;
+  }
+
+  .tea-recipe {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .tea-recipe .tea-cup__well {
+    width: 48px;
+    height: 48px;
+  }
+
+  .tea-recipe > .tea-tag {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .tea-rules {
+    padding: 14px 16px;
+  }
+
+  .tea-stats dd {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tea-section__chevron,
+  .tea-meter__track span {
+    transition: none;
+  }
+}
