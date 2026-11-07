@@ -402,9 +402,6 @@ async function handleLogout() {
                     >
                     <span v-else class="i-carbon-user-avatar text-xl text-gray-500 dark:text-gray-300" aria-hidden="true" />
                   </div>
-                  <div class="admin-star absolute z-10 h-4 w-4 flex items-center justify-center rounded-full text-[8px] shadow-sm -right-1 -top-1">
-                    <span>&#9733;</span>
-                  </div>
                 </div>
                 <div v-show="!isSidebarCollapsed" class="min-w-0 flex flex-col items-start">
                   <span class="font-body w-full truncate text-left text-sm font-medium">
@@ -930,11 +927,6 @@ nav a:hover {
 .admin-badge {
   color: #725d9e;
   background: var(--ui-violet-soft);
-}
-
-.admin-star {
-  color: #8b6321;
-  background: var(--ui-warning-soft);
 }
 
 .sidebar-relogin-btn {
