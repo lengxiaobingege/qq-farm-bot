@@ -21,6 +21,113 @@ function canAfford(costs: any, balances: any, count = 1): boolean {
     return costs.every((c: any) => (toNum(balances[String(toNum(c.id))]) || 0) >= toNum(c.count) * count);
 }
 
+// ============ 活动果实种子补给 ============
+// 高级饮品单价（11~16 券/杯）是普通奶茶（3 券）的 4~5 倍，但只能用它自己的活动果实制作，
+// 果实又只能靠森野系列种子种出来（种子在活动商店用金币出售、12 小时一茬）。
+// 背包里一颗活动种子都没有时补货，让农场「背包优先」策略能种上活动作物。
+const MILK_COIN_ID = '1041';
+const ACTIVITY_SEED_GOODS = ['森野甜莓种子', '森野白桃种子', '森野甜橙种子'];
+// 只统计当前店铺等级已解锁配方的三种种子；背包里还有这些就不补货
+const ACTIVITY_SEED_IDS = [20525, 20526, 20527];
+const SEED_REPLENISH_COUNT = 24;                     // 一轮种满 24 块地
+const SEED_REPLENISH_INTERVAL_MS = 30 * 60 * 1000;   // 检查频率，避免频繁拉活动商店
+const SEED_REPLENISH_MIN_REMAIN_SEC = 24 * 3600;     // 剩余不足 1 天不再补种（一茬要 12 小时）
+let lastSeedReplenishAt = 0;
+
+async function replenishActivitySeeds(state: any, settling: boolean): Promise<number> {
+    if (settling) return 0;
+    if (toNum(state.endTime) - getServerTimeSec() < SEED_REPLENISH_MIN_REMAIN_SEC) return 0;
+    if (Date.now() - lastSeedReplenishAt < SEED_REPLENISH_INTERVAL_MS) return 0;
+    lastSeedReplenishAt = Date.now();
+    try {
+        const warehouse = require('../warehouse');
+        const bag = warehouse.getBagItems(await warehouse.getBag());
+        const owned = bag.reduce((sum: number, entry: any) =>
+            sum + (ACTIVITY_SEED_IDS.includes(toNum(entry.id)) ? toNum(entry.count) : 0), 0);
+        // 背包里还有活动种子（够下一轮种）就不买，避免囤积占金币
+        if (owned > 0) return 0;
+
+        const exchange: any = await getMilkTeaActivity('exchange');
+        const goods = (exchange.goods || []).filter((v: any) => ACTIVITY_SEED_GOODS.includes(v.name) && v.available);
+        if (goods.length === 0) return 0;
+
+        let bought = 0;
+        for (const item of goods) {
+            if (bought >= SEED_REPLENISH_COUNT) break;
+            // 只在金币支付时补货；奶茶券买的种子（黄金芽）性价比差，不自动买
+            const coinCost = (item.costs || []).find((c: any) => String(toNum(c.id)) === '1001');
+            if (!coinCost) continue;
+            const remain = item.remaining === null || item.remaining === undefined
+                ? SEED_REPLENISH_COUNT
+                : Math.max(0, toNum(item.remaining));
+            const count = Math.min(remain, SEED_REPLENISH_COUNT - bought);
+            if (count <= 0) continue;
+            const ok = await safeStep(`补充${item.name}`, async () => {
+                await operateMilkTeaActivity('exchange', {
+                    goodsId: item.id,
+                    count,
+                    expectedCosts: item.costs,
+                });
+                log('活动任务', `奶茶补种活动作物：${item.name} x${count}（花费金币 ${toNum(coinCost.count) * count}）`, {
+                    module: 'activity_task', event: 'buy_milk_seed', result: 'ok', goodsId: item.id, count,
+                });
+            });
+            if (ok) bought += count;
+        }
+        return bought;
+    } catch (e: any) {
+        // 补种失败不影响本轮其他动作，30 分钟内不再重试
+        log('活动任务', `奶茶补种活动种子失败: ${e.message}`, { module: 'activity_task', event: 'buy_milk_seed', result: 'fail' });
+        return 0;
+    }
+}
+
+// ============ 结算期清仓兑换 ============
+// 奶茶券随活动结束失效，结算期已不能制作/雇佣，把余券换成永久奖励。
+// 只换固定的几件外观类奖励，按价格从低到高买，买不到就留余额，不做任何投机性消费。
+const SETTLE_REDEEM_GOODS = ['缤纷奶茶头像框', '桌椅套装', '门套装', '窗套装', '墙面套装', '地板套装'];
+const SETTLE_REDEEM_INTERVAL_MS = 10 * 60 * 1000;
+let lastSettleRedeemAt = 0;
+
+async function redeemSettleRewards(state: any, settling: boolean): Promise<number> {
+    if (!settling) return 0;
+    if (Date.now() - lastSettleRedeemAt < SETTLE_REDEEM_INTERVAL_MS) return 0;
+    lastSettleRedeemAt = Date.now();
+    try {
+        const exchange: any = await getMilkTeaActivity('exchange');
+        const balance = toNum(exchange.balances?.[MILK_COIN_ID]);
+        if (balance <= 0) return 0;
+        let redeemed = 0;
+        let remainingCoins = balance;
+        // 便宜的优先，能多换一件是一件
+        const candidates = (exchange.goods || [])
+            .filter((v: any) => SETTLE_REDEEM_GOODS.includes(v.name) && v.available)
+            .sort((a: any, b: any) => toNum(a.costs?.[0]?.count) - toNum(b.costs?.[0]?.count));
+        for (const item of candidates) {
+            const cost = toNum(item.costs?.find((c: any) => String(toNum(c.id)) === MILK_COIN_ID)?.count);
+            if (!cost || remainingCoins < cost) continue;
+            const ok = await safeStep(`兑换${item.name}`, async () => {
+                await operateMilkTeaActivity('exchange', {
+                    goodsId: item.id,
+                    count: 1,
+                    expectedCosts: item.costs,
+                });
+                log('活动任务', `奶茶券兑换：${item.name}（花费 ${cost} 券）`, {
+                    module: 'activity_task', event: 'redeem_milk_reward', result: 'ok', goodsId: item.id, cost,
+                });
+            });
+            if (ok) {
+                redeemed += 1;
+                remainingCoins -= cost;
+            }
+        }
+        return redeemed;
+    } catch (e: any) {
+        log('活动任务', `奶茶券兑换失败: ${e.message}`, { module: 'activity_task', event: 'redeem_milk_reward', result: 'fail' });
+        return 0;
+    }
+}
+
 /**
  * 结算期提醒：由调度层通过主进程推送，未配置渠道时主进程侧自动跳过。
  * 成功排队后立即记录日期，保证同一天不会重复提醒。
@@ -221,6 +328,12 @@ async function autoMilkTea(): Promise<AutoResult> {
                 log('活动任务', '奶茶领取成长基金奖励', { module: 'activity_task', event: 'claim_milk_fund', result: 'ok' });
             });
         }
+
+        // 补充活动作物种子（活动果实 → 高价饮品）
+        await replenishActivitySeeds(shopState, settling);
+
+        // 结算期把余券换成永久奖励（券会随活动结束失效）
+        await redeemSettleRewards(shopState, settling);
 
         // 有单步失败时汇总上报（沿用 30 分钟去重）
         const failures = takeStepFailures();
