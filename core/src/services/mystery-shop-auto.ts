@@ -2,6 +2,8 @@ export {};
 
 const { getAutomation } = require('../models/store');
 const { log, logWarn } = require('../utils/utils');
+const { getDataFile } = require('../config/runtime-paths');
+const { readJsonFile, writeJsonFileAtomic } = require('./json-db');
 
 const GOLD_ITEM_ID = 1001;
 const COUPON_ITEM_ID = 1002;
@@ -25,11 +27,17 @@ const MYSTERY_SHOP_AUTOMATION_KEYS = [
     'mystery_shop_purchase_notify',
 ] as const;
 
-const AUTO_BUY_CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000;
+// 神秘商人出现窗口短、协议里没有「下次出现时间」，只能轮询探测。
+// 原 2 小时一次会整段错过商人停留期，改为 10 分钟一次（一天 144 次查询，远低于农场循环频率）。
+const AUTO_BUY_CHECK_INTERVAL_MS = 10 * 60 * 1000;
+
+const STATE_FILE = 'mystery-shop-auto-state.json';
 
 interface MysteryShopAutoState {
     lastArrivalKey: string;
     lastPurchaseKey: string;
+    // 同一次到货的同一种跳过原因只记一条日志，避免 10 分钟一轮刷屏
+    lastSkipKey?: string;
 }
 
 interface MysteryShopDecision {
@@ -50,8 +58,47 @@ const defaultState: MysteryShopAutoState = {
     lastPurchaseKey: '',
 };
 
+// 巡检心跳：重启后前 3 轮各记一条（便于确认间隔生效），之后每小时一条，避免刷屏
+let idleTickCount = 0;
+
+function noteIdleTick(): void {
+    idleTickCount += 1;
+    if (idleTickCount > 3 && idleTickCount % 6 !== 0) return;
+    log('商城', `神秘商人巡检：当前无在售货品（第 ${idleTickCount} 轮）`, {
+        module: 'shop', event: '神秘商人巡检', result: 'idle', idleTicks: idleTickCount,
+    });
+}
+
 function createMysteryShopAutoState(): MysteryShopAutoState {
-    return { lastArrivalKey: '', lastPurchaseKey: '' };
+    return { lastArrivalKey: '', lastPurchaseKey: '', lastSkipKey: '' };
+}
+
+// 通知去重标记落盘：进程重启后同一次到货不会重复推送
+let persistentState: MysteryShopAutoState | null = null;
+
+function loadMysteryShopAutoState(): MysteryShopAutoState {
+    if (persistentState) return persistentState;
+    const fallback = createMysteryShopAutoState();
+    try {
+        const raw: any = readJsonFile(getDataFile(STATE_FILE), fallback);
+        persistentState = {
+            lastArrivalKey: String(raw?.lastArrivalKey || ''),
+            lastPurchaseKey: String(raw?.lastPurchaseKey || ''),
+            lastSkipKey: String(raw?.lastSkipKey || ''),
+        };
+    } catch {
+        persistentState = fallback;
+    }
+    return persistentState as MysteryShopAutoState;
+}
+
+function saveMysteryShopAutoState(state: MysteryShopAutoState): void {
+    persistentState = state;
+    try {
+        writeJsonFileAtomic(getDataFile(STATE_FILE), state);
+    } catch {
+        // 去重标记写失败只影响重复推送，不影响购买
+    }
 }
 
 function isMysteryShopWatchEnabled(automation: any = {}): boolean {
@@ -177,9 +224,18 @@ async function checkMysteryShopTick(options: {
     getShop?: () => Promise<any>;
     buy?: (npcId: number) => Promise<any>;
     state?: MysteryShopAutoState;
-} = {}): Promise<{ skipped?: boolean; reason?: string; bought?: boolean; push?: { title: string; content: string } | null }> {
+} = {}): Promise<{
+    skipped?: boolean;
+    reason?: string;
+    bought?: boolean;
+    visitKey?: string;
+    notifyArrival?: boolean;
+    push?: { title: string; content: string } | null;
+}> {
     const automation = (options.getAutomation || getAutomation)() || {};
-    const state = options.state || defaultState;
+    // 外部注入 state 时（单测/调试）不落盘，只有默认运行路径使用持久化标记
+    const shouldPersist = !options.state;
+    const state = options.state || loadMysteryShopAutoState();
     if (!isMysteryShopWatchEnabled(automation)) {
         return { skipped: true, reason: 'disabled' };
     }
@@ -200,8 +256,10 @@ async function checkMysteryShopTick(options: {
 
     const decision = decideMysteryShopTick(shop, automation, state);
     if (decision.skipReason === 'inactive' || decision.skipReason === 'disabled') {
+        noteIdleTick();
         return { skipped: true, reason: decision.skipReason };
     }
+    idleTickCount = 0;
 
     let bought = false;
     if (decision.shouldBuy) {
@@ -224,7 +282,10 @@ async function checkMysteryShopTick(options: {
         }
     } else {
         const message = skipBuyLog(decision, shop);
-        if (message) {
+        const skipKey = `${decision.visitKey}:${decision.skipBuyReason}`;
+        if (message && state.lastSkipKey !== skipKey) {
+            state.lastSkipKey = skipKey;
+            if (shouldPersist) saveMysteryShopAutoState(state);
             log('商城', message, {
                 module: 'shop',
                 event: '神秘商人自动购买',
@@ -237,10 +298,11 @@ async function checkMysteryShopTick(options: {
 
     const flags = resolveMysteryShopPushFlags(decision, bought, automation, state);
     if (!flags.arrival && !flags.purchase) {
-        return { bought };
+        return { bought, visitKey: decision.visitKey, notifyArrival: decision.notifyArrival };
     }
     commitMysteryShopNotify(state, String(decision.visitKey), flags);
-    return { bought, push: buildMysteryShopPush(shop, flags) };
+    if (shouldPersist) saveMysteryShopAutoState(state);
+    return { bought, visitKey: decision.visitKey, notifyArrival: decision.notifyArrival, push: buildMysteryShopPush(shop, flags) };
 }
 
 module.exports = {
@@ -251,6 +313,8 @@ module.exports = {
     MYSTERY_SHOP_AUTOMATION_KEYS,
     AUTO_BUY_CHECK_INTERVAL_MS,
     createMysteryShopAutoState,
+    loadMysteryShopAutoState,
+    saveMysteryShopAutoState,
     isMysteryShopWatchEnabled,
     mysteryShopConfigChanged,
     isCurrencyAllowed,

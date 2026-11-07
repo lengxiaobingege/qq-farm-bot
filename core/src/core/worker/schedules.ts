@@ -300,6 +300,10 @@ function startMysteryShopTimer(): void {
     } = require('../../services/mystery-shop-auto');
     stopMysteryShopTimer();
     if (!st.loginReady || !isMysteryShopWatchEnabled(getAutomation())) return;
+    // 登录后先补一次即时检查：商人可能正在场，没必要干等一整个巡检间隔
+    st.workerScheduler.setTimeoutTask('mystery_shop_initial', 30 * 1000, () => {
+        runExclusiveAutomationTask('mystery_shop', runMysteryShopTick).catch(() => null);
+    });
     st.workerScheduler.setIntervalTask('mystery_shop_interval', AUTO_BUY_CHECK_INTERVAL_MS, () => {
         runExclusiveAutomationTask('mystery_shop', runMysteryShopTick).catch(() => null);
     });
