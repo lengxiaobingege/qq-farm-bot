@@ -42,15 +42,22 @@ const showRemarkModal = ref(false)
 const accountToEdit = ref<any>(null)
 const wsErrorNotifiedAt = ref<Record<string, number>>({})
 const accountAvatarErrors = ref<Set<string>>(new Set())
-// 超级管理员没有后端头像字段，未自定义时回退到品牌图标
+// 超级管理员没有后端头像字段：优先用户头像，其次复用当前账号头像，最后回退品牌图标
 const DEFAULT_ADMIN_AVATAR = '/icon.svg?v=farmhouse-1'
-const userAvatar = computed(() => String(userStore.avatar || '').trim() || DEFAULT_ADMIN_AVATAR)
-const failedUserAvatar = ref('')
+const failedAdminAvatars = ref<Set<string>>(new Set())
+const userAvatar = computed(() => {
+  const candidates = [
+    String(userStore.avatar || '').trim(),
+    getAccountAvatar(currentAccount.value),
+    DEFAULT_ADMIN_AVATAR,
+  ]
+  return candidates.find(src => !!src && !failedAdminAvatars.value.has(src)) || ''
+})
 
 function handleUserAvatarError(event: Event) {
   const failedSource = (event.target as HTMLImageElement).getAttribute('src')
-  if (failedSource === userAvatar.value)
-    failedUserAvatar.value = failedSource
+  if (failedSource)
+    failedAdminAvatars.value.add(failedSource)
 }
 
 const systemConnected = ref(true)
@@ -386,7 +393,7 @@ async function handleLogout() {
                 <div class="farm-avatar-ring relative h-9 w-9 shrink-0 overflow-hidden rounded-full shadow-md" style="background: var(--ui-primary-fill); padding: 2px;">
                   <div class="admin-avatar h-full w-full flex items-center justify-center overflow-hidden rounded-full bg-gray-200 dark:bg-gray-600">
                     <img
-                      v-if="userAvatar && userAvatar !== failedUserAvatar"
+                      v-if="userAvatar"
                       :key="userAvatar"
                       :src="userAvatar"
                       alt=""
