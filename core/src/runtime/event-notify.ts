@@ -20,6 +20,16 @@ function createEventNotifyService(options: ReloginReminderOptions) {
     // 同一条配置错误刷屏 error 日志没有额外价值；配置变更后允许再次提示。
     let lastConfigErrorReason = '';
 
+    // 推送串行队列：登录提醒、神秘商人到货等可能同一刻触发，
+    // pushplus 一类渠道对同 token 并发会返回「服务端验证错误」，串行后不会互相顶掉。
+    let pushQueue: Promise<any> = Promise.resolve();
+
+    function enqueuePush<T>(task: () => Promise<T>): Promise<T> {
+        const run = pushQueue.then(task, task);
+        pushQueue = run.then(() => undefined, () => undefined);
+        return run;
+    }
+
     function reportConfigError(reason: string): void {
         if (reason === lastConfigErrorReason) return;
         lastConfigErrorReason = reason;
@@ -79,13 +89,20 @@ function createEventNotifyService(options: ReloginReminderOptions) {
                 log('错误', '推送标题或内容为空');
                 return;
             }
-            const result = await sendPushooMessage({
+            const sendOnce = () => sendPushooMessage({
                 channel: channelCfg.channel,
                 endpoint: channelCfg.endpoint,
                 token: channelCfg.token,
                 secret: channelCfg.secret,
                 title,
                 content,
+            });
+            // 串行发送；失败（并发/瞬时校验）等 2 秒重试一次，避免提醒被静默丢掉
+            const result = await enqueuePush(async () => {
+                const first = await sendOnce();
+                if (first?.ok) return first;
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                return sendOnce();
             });
             if (result?.ok) {
                 log('系统', `${logLabel}发送成功: ${accountName || accountId || title}`);
