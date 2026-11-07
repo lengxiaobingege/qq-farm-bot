@@ -183,6 +183,7 @@ async function runFarmTick(auto: any): Promise<void> {
 // ============ 好友统一任务：偷菜、帮助、放虫放草 ============
 async function runFriendTick(auto: any): Promise<void> {
     if (st.friendTaskRunning) return;
+    const generation = st.runtimeGeneration;
     const friendMs = randomIntervalMs(
         workerConfig.friendCheckIntervalMin || 12000,
         workerConfig.friendCheckIntervalMax || 15000
@@ -207,22 +208,27 @@ async function runFriendTick(auto: any): Promise<void> {
     } catch (e: any) {
         log('系统', `好友统一任务执行失败: ${e.message}`, { module: 'system', event: '好友统一任务', result: 'error' });
     } finally {
-        st.nextFriendRunAt = Date.now() + friendMs;
-        st.friendTaskRunning = false;
+        if (generation === st.runtimeGeneration) {
+            st.nextFriendRunAt = Date.now() + friendMs;
+            st.friendTaskRunning = false;
+            scheduleUnifiedNextTick();
+        }
     }
 }
 
 async function runUnifiedTick(): Promise<void> {
     if (!st.unifiedSchedulerRunning || !st.loginReady) return;
+    const generation = st.runtimeGeneration;
     const now = Date.now();
     const dueFarm = now >= st.nextFarmRunAt;
     const dueFriend = now >= st.nextFriendRunAt;
     if (!dueFarm && !dueFriend) return;
 
     const auto = getAutomation();
-    // 串行执行而非并行，避免并发请求过多导致超时
+    // 好友按单次访问持锁，等待间隔不阻塞后续农场巡查。
     if (dueFarm) await runExclusiveAutomationTask('farm_tick', () => runFarmTick(auto));
-    if (dueFriend) await runExclusiveAutomationTask('friend_tick', () => runFriendTick(auto));
+    if (!st.unifiedSchedulerRunning || !st.loginReady || generation !== st.runtimeGeneration) return;
+    if (dueFriend && !st.friendTaskRunning) void runFriendTick(auto);
 }
 
 function scheduleUnifiedNextTick(): void {
@@ -232,9 +238,10 @@ function scheduleUnifiedNextTick(): void {
 
     const now = Date.now();
     const nextAt = Math.min(
-        Number(st.nextFarmRunAt) || (now + 1000),
-        Number(st.nextFriendRunAt) || (now + 1000)
+        st.farmTaskRunning ? Number.POSITIVE_INFINITY : (Number(st.nextFarmRunAt) || (now + 1000)),
+        st.friendTaskRunning ? Number.POSITIVE_INFINITY : (Number(st.nextFriendRunAt) || (now + 1000))
     );
+    if (!Number.isFinite(nextAt)) return;
     const delayMs = Math.max(1000, nextAt - now); // 最低 1 秒
 
     st.workerScheduler.setTimeoutTask('unified_next_tick', delayMs, async () => {
