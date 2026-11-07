@@ -210,7 +210,7 @@ async function perform(action: string, input: any) {
         params = { shop_name: name };
     } else if (action === 'boost') {
         const count = integer(input.count, 1, 9999);
-        if (state.shop.is_settling) fail('结算期不可加速');
+        if (state.settling) fail('结算期不可加速');
         checkCost([{ id: toNum(state.shop.sales_item_id), count: 1 }], input.expectedCosts, state.balances, count);
         params = { count };
     } else if (action === 'claim') {

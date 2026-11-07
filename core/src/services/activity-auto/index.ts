@@ -7,21 +7,28 @@ export {};
  * - solar-auto.ts     节令日历（节令开始当天执行一次）
  */
 
-import type { AutoResult } from './shared';
+import type { AutoPushMessage, AutoResult } from './shared';
 const { isAutomationOn } = require('../../models/store');
 const { log } = require('../../utils/utils');
 const { autoMilkTea } = require('./milk-tea-auto');
 const { autoHappy } = require('./happy-auto');
 const { autoSolar } = require('./solar-auto');
 
-async function checkAndClaimActivityTasks(): Promise<void> {
-    if (!isAutomationOn('activity_task')) return;
+interface ActivityTaskResult {
+    /** 需要推送给用户的提醒，由调度层转交主进程发送 */
+    pushes: AutoPushMessage[];
+}
+
+async function checkAndClaimActivityTasks(): Promise<ActivityTaskResult> {
+    if (!isAutomationOn('activity_task')) return { pushes: [] };
 
     const messages: string[] = [];
+    const pushes: AutoPushMessage[] = [];
     // 串行执行，避免并发请求触发服务器限速
     const run = async (task: () => Promise<AutoResult>): Promise<void> => {
         const result = await task();
         if (result.message) messages.push(result.message);
+        if (result.push?.title && result.push?.content) pushes.push(result.push);
     };
 
     await run(autoMilkTea);
@@ -31,6 +38,7 @@ async function checkAndClaimActivityTasks(): Promise<void> {
     if (messages.length > 0) {
         log('活动任务', messages.join('，'), { module: 'activity_task', event: 'activity_task_tick', result: 'ok' });
     }
+    return { pushes };
 }
 
 module.exports = {

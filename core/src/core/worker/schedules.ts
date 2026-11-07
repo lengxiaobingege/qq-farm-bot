@@ -169,7 +169,13 @@ async function runFarmTick(auto: any): Promise<void> {
         await runWithRequestClass('farm', async () => {
             if (auto.farm) await checkFarm();
             if (auto.task) await checkAndClaimTasks();
-            if (auto.activity_task) await checkAndClaimActivityTasks();
+            if (auto.activity_task) {
+                const activityResult = await checkAndClaimActivityTasks();
+                // 活动提醒（如奶茶结算期）交给主进程统一推送，未配置渠道时自动跳过
+                for (const push of activityResult?.pushes || []) {
+                    if (push?.title && push?.content) sendToMaster({ type: 'push_notify', title: push.title, content: push.content });
+                }
+            }
             if (auto.fertilizer_gift) await openFertilizerGiftPacksSilently();
         });
     } catch {

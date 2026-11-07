@@ -5,16 +5,14 @@ export {};
  *       加速收银台、升级店铺、制作饮品、工作互动（涨薪）、成长基金
  */
 
-import type { AutoResult } from './shared';
+import type { AutoPushMessage, AutoResult } from './shared';
 const { isAutomationOn } = require('../../models/store');
-const { getEventNotify } = require('../../models/store/global-config');
-const { sendPushooMessage } = require('../push');
 const { getServerTimeSec, toNum, log, sleep } = require('../../utils/utils');
 const { getMilkTeaActivity, operateMilkTeaActivity } = require('../milk-tea');
 const { logActivityError, safeStep, takeStepFailures } = require('./shared');
+const { buildSettleReminder, getSentDay, markSent } = require('./milk-tea-remind');
 
-// 结算期收尾提醒：进入结算期后按北京日期每天最多推送一次
-let lastSettleRemindDay = '';
+const MILK_ACTIVITY_KEY = '2026110101';
 
 /** 检查余额是否足以支付 costs（与 milk-tea.ts checkCost 同规则）；余额不足时应跳过而不是报失败 */
 function canAfford(costs: any, balances: any, count = 1): boolean {
@@ -23,35 +21,25 @@ function canAfford(costs: any, balances: any, count = 1): boolean {
     return costs.every((c: any) => (toNum(balances[String(toNum(c.id))]) || 0) >= toNum(c.count) * count);
 }
 
-function beijingDayKey(tsSec: number): string {
-    return new Date((tsSec + 8 * 3600) * 1000).toISOString().slice(0, 10);
-}
-
-async function maybeRemindMilkSettle(state: any): Promise<void> {
+/**
+ * 结算期提醒：由调度层通过主进程推送，未配置渠道时主进程侧自动跳过。
+ * 成功排队后立即记录日期，保证同一天不会重复提醒。
+ */
+function checkSettleReminder(state: any): AutoPushMessage | null {
     try {
-        const settleStart = toNum(state.settleStartTime);
-        const end = toNum(state.endTime);
         const now = getServerTimeSec();
-        if (!(settleStart > 0 && now >= settleStart && end > 0 && now < end)) return;
-        const dayKey = beijingDayKey(now);
-        if (dayKey === lastSettleRemindDay) return;
-        const cfg = getEventNotify ? getEventNotify() : null;
-        const channel = String(cfg?.channel || '').trim().toLowerCase();
-        const endpoint = String(cfg?.endpoint || '').trim();
-        const token = String(cfg?.token || '').trim();
-        // 未配置推送渠道时静默跳过，不重复刷错误日志
-        if (!channel || (channel === 'webhook' && !endpoint) || (channel !== 'webhook' && channel !== 'dingtalk' && !token)) return;
-        lastSettleRemindDay = dayKey;
-        const remainDays = Math.max(1, Math.ceil((end - now) / 86400));
-        const result = await sendPushooMessage({
-            channel, endpoint, token, secret: String(cfg?.secret || '').trim(),
-            title: '奶茶进入结算期',
-            content: `奶茶热销中已进入结算期，剩余约 ${remainDays} 天。请及时兑换奖励并清仓库存，活动结束后未兑换奖励将失效。`,
+        const reminder = buildSettleReminder({
+            settleStart: toNum(state.settleStartTime),
+            end: toNum(state.endTime),
+            now,
+            sentDay: getSentDay(MILK_ACTIVITY_KEY),
         });
-        if (result?.ok) log('活动任务', '奶茶结算期提醒发送成功', { module: 'activity_task', event: 'milk_settle_remind', result: 'ok' });
-        else log('错误', `奶茶结算期提醒发送失败: ${result?.msg || 'unknown'}`, { module: 'activity_task', event: 'milk_settle_remind', result: 'fail' });
+        if (!reminder) return null;
+        markSent(MILK_ACTIVITY_KEY, reminder.day, now);
+        return { title: reminder.title, content: reminder.content };
     } catch (e: any) {
-        log('错误', `奶茶结算期提醒发送异常: ${e.message}`, { module: 'activity_task', event: 'milk_settle_remind', result: 'fail' });
+        log('错误', `奶茶结算期提醒生成异常: ${e.message}`, { module: 'activity_task', event: 'milk_settle_remind', result: 'fail' });
+        return null;
     }
 }
 
@@ -59,15 +47,18 @@ async function maybeRemindMilkSettle(state: any): Promise<void> {
 async function autoMilkTea(): Promise<AutoResult> {
     if (!isAutomationOn('activity_task')) return { claimed: 0, message: '自动化未开启' };
     takeStepFailures();
+    let push: AutoPushMessage | null = null;
     try {
         const state: any = await getMilkTeaActivity('shop');
         if (!state || !state.active) return { claimed: 0, message: '奶茶活动未开放' };
 
         let claimed = 0;
         const now = getServerTimeSec();
-
-        // 结算期提醒（每天一次，不阻塞主流程结果）
-        await maybeRemindMilkSettle(state);
+        // 结算期只能领取/兑换/升级，制作、雇佣、加速、互动会被服务端拒绝，这里直接跳过。
+        // settling 由活动头的 settle_start_time 计算；shop.is_settling 是服务端字段（false 时不会被序列化），两者取或更稳。
+        const settling = !!state.settling || !!state.shop?.is_settling;
+        // 结算期提醒（每天最多一条，交给调度层推送）
+        push = checkSettleReminder(state);
 
         // 领取收银台收益
         const pending = Array.isArray(state.shop?.pending_rewards) ? state.shop.pending_rewards.filter((v: any) => toNum(v.count) > 0) : [];
@@ -99,7 +90,7 @@ async function autoMilkTea(): Promise<AutoResult> {
 
         // 雇佣员工（按等级工位上限补满所有空位，直到满员或无可用员工；奶茶券不足则放弃雇佣这一轮）
         let hireSkipped = false;
-        while (toNum(shopState.summary.shop_open_at) > 0 && !hireSkipped) {
+        while (!settling && toNum(shopState.summary.shop_open_at) > 0 && !hireSkipped) {
             const nowTs = getServerTimeSec();
             const slots = Array.isArray(shopState.shop?.slots) ? shopState.shop.slots : [];
             const levelInfo = (shopState.levels || []).find((v: any) => toNum(v.level) === toNum(shopState.summary.level));
@@ -143,7 +134,7 @@ async function autoMilkTea(): Promise<AutoResult> {
 
         // 加速收银台（余额不足时静默跳过，避免每轮报失败）
         shopState = await getMilkTeaActivity('shop');
-        if (!shopState.shop.is_settling && shopState.shop.sales_item_id && toNum(shopState.summary.shop_open_at) > 0
+        if (!settling && shopState.shop.sales_item_id && toNum(shopState.summary.shop_open_at) > 0
             && canAfford([{ id: toNum(shopState.shop.sales_item_id), count: 1 }], shopState.balances)) {
             await safeStep('加速收银台', async () => {
                 await operateMilkTeaActivity('boost', {
@@ -169,8 +160,8 @@ async function autoMilkTea(): Promise<AutoResult> {
             await sleep(500);
         }
 
-        // 制作饮品（使用所有可用果实）
-        if (toNum(shopState.summary.shop_open_at) > 0 && !shopState.shop.is_settling) {
+        // 制作饮品（使用所有可用果实；结算期服务端禁止制作，跳过省一次请求）
+        if (toNum(shopState.summary.shop_open_at) > 0 && !settling) {
             const workshopState = await getMilkTeaActivity('workshop');
             const availableFruits = (workshopState.fruits || []).filter((v: any) => !v.locked && toNum(v.count) > 0);
             if (availableFruits.length > 0) {
@@ -192,7 +183,7 @@ async function autoMilkTea(): Promise<AutoResult> {
         const shift = workState?.work?.my_shift;
         // interaction_type 取 1-5，"涨薪"为最后一个，即 5
         const INTERACT_TYPE_RAISE_SALARY = 5;
-        if (shift && !workState.work.interact_done && toNum(shift.end_at) > now && toNum(shift.interact_count) < toNum(shift.interact_limit)) {
+        if (shift && !settling && !workState.work.interact_done && toNum(shift.end_at) > now && toNum(shift.interact_count) < toNum(shift.interact_limit)) {
             const interactions = workState.interactions || workState.work?.interactions || [];
             const interaction = interactions.find((v: any) => v.interaction_id === INTERACT_TYPE_RAISE_SALARY && v.ready);
             if (interaction) {
@@ -235,11 +226,11 @@ async function autoMilkTea(): Promise<AutoResult> {
         const failures = takeStepFailures();
         if (failures.length > 0) {
             const summary = new Error(failures.join('；'));
-            return { claimed, message: `${claimed > 0 ? `奶茶完成 ${claimed} 项，` : ''}${logActivityError('milk', '奶茶', summary)}` };
+            return { claimed, message: `${claimed > 0 ? `奶茶完成 ${claimed} 项，` : ''}${logActivityError('milk', '奶茶', summary)}`, ...(push ? { push } : {}) };
         }
-        return { claimed, message: claimed > 0 ? `奶茶完成 ${claimed} 项` : '奶茶无可执行任务' };
+        return { claimed, message: claimed > 0 ? `奶茶完成 ${claimed} 项` : '奶茶无可执行任务', ...(push ? { push } : {}) };
     } catch (e: any) {
-        return { claimed: 0, message: logActivityError('milk', '奶茶', e) };
+        return { claimed: 0, message: logActivityError('milk', '奶茶', e), ...(push ? { push } : {}) };
     }
 }
 

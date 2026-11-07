@@ -3,9 +3,16 @@ export {};
  * 活动自动化公共工具：结果类型、错误去重日志、单步容错执行
  */
 
+export interface AutoPushMessage {
+    title: string;
+    content: string;
+}
+
 export interface AutoResult {
     claimed: number;
     message: string;
+    /** 需要推送给用户的提醒，由调度层通过主进程发送 */
+    push?: AutoPushMessage;
 }
 
 // 同一活动的同一错误短时间内不重复写日志，避免活动结束/资源不足时每个 tick 刷屏
