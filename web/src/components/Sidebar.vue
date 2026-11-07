@@ -42,7 +42,9 @@ const showRemarkModal = ref(false)
 const accountToEdit = ref<any>(null)
 const wsErrorNotifiedAt = ref<Record<string, number>>({})
 const accountAvatarErrors = ref<Set<string>>(new Set())
-const userAvatar = computed(() => String(userStore.avatar || '').trim())
+// 超级管理员没有后端头像字段，未自定义时回退到品牌图标
+const DEFAULT_ADMIN_AVATAR = '/icon.svg?v=farmhouse-1'
+const userAvatar = computed(() => String(userStore.avatar || '').trim() || DEFAULT_ADMIN_AVATAR)
 const failedUserAvatar = ref('')
 
 function handleUserAvatarError(event: Event) {
@@ -128,6 +130,29 @@ function getAccountAvatar(account: any) {
   return liveAvatar || String(account.avatar || '').trim()
 }
 
+// 服务器偶尔返回带控制字符的昵称（如 \x7f），直接显示会出现 "(名字)" 这样的空括号
+function cleanAccountNick(account: any): string {
+  const nick = String(account?.nick || '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim()
+  // 只剩标点/空白视为无效昵称
+  return /[\p{L}\p{N}]/u.test(nick) ? nick : ''
+}
+
+function getAccountDisplayName(account: any): string {
+  const nick = cleanAccountNick(account)
+  const name = String(account?.name || '').trim()
+  if (nick && name && nick !== name)
+    return `${nick} (${name})`
+  return nick || name || String(account?.gid || account?.uin || account?.id || '')
+}
+
+// 账号标识优先展示游戏角色编号 gid，其次是 QQ 号 uin，最后才是内部 id
+function getAccountIdentity(account: any): string {
+  const gid = String(account?.gid ?? '').trim()
+  if (gid && gid !== '0')
+    return gid
+  return String(account?.uin || account?.id || '').trim()
+}
+
 function toggleUserDropdown() {
   showUserDropdown.value = !showUserDropdown.value
   if (showUserDropdown.value) {
@@ -208,7 +233,9 @@ const displayName = computed(() => {
     return '选择账号'
 
   // 1. 优先显示实时状态中的昵称 (如果有且不是未登录)
-  const liveName = status.value?.status?.name
+  const liveName = String(status.value?.status?.name || '')
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+    .trim()
   if (liveName && liveName !== '未登录') {
     // 如果有备注，显示为"昵称（备注）"
     if (acc.name && acc.name !== liveName) {
@@ -217,18 +244,19 @@ const displayName = computed(() => {
     return liveName
   }
 
-  // 2. 其次显示账号存储的备注名称 (name)
+  // 2. 其次显示账号存储的备注名称 (name)，昵称中的控制字符需先清洗
+  const nick = cleanAccountNick(acc)
   if (acc.name) {
     // 如果有同步的昵称，显示为"昵称（备注）"
-    if (acc.nick && acc.nick !== acc.name) {
-      return `${acc.nick} (${acc.name})`
+    if (nick && nick !== acc.name) {
+      return `${nick} (${acc.name})`
     }
     return acc.name
   }
 
   // 3. 显示同步的昵称 (nick)
-  if (acc.nick)
-    return acc.nick
+  if (nick)
+    return nick
 
   // 4. 最后显示UIN
   return acc.uin
@@ -467,7 +495,7 @@ async function handleLogout() {
                       {{ platform }}
                     </span>
                     <span class="truncate text-xs text-gray-400">
-                      {{ currentAccount?.uin || currentAccount?.id || '未选择' }}
+                      {{ getAccountIdentity(currentAccount) || '未选择' }}
                     </span>
                   </div>
                 </div>
@@ -481,7 +509,7 @@ async function handleLogout() {
           </template>
           <div class="sidebar-tooltip-content">
             <strong>{{ displayName }}</strong>
-            <span>{{ platform || '未选择平台' }} · {{ currentAccount?.uin || currentAccount?.id || '未选择账号' }}</span>
+            <span>{{ platform || '未选择平台' }} · {{ getAccountIdentity(currentAccount) || '未选择账号' }}</span>
           </div>
         </NTooltip>
 
@@ -511,7 +539,7 @@ async function handleLogout() {
                   </div>
                   <div class="min-w-0 flex flex-1 flex-col items-start">
                     <span class="w-full truncate text-left text-sm font-medium">
-                      {{ acc.nick && acc.name && acc.nick !== acc.name ? `${acc.nick} (${acc.name})` : acc.name || acc.nick || acc.uin }}
+                      {{ getAccountDisplayName(acc) }}
                     </span>
                     <div class="flex items-center gap-1.5">
                       <span
@@ -521,7 +549,7 @@ async function handleLogout() {
                       >
                         {{ getPlatformLabel(acc.platform) }}
                       </span>
-                      <span class="text-xs text-gray-400">{{ acc.uin || acc.id }}</span>
+                      <span class="text-xs text-gray-400">{{ getAccountIdentity(acc) }}</span>
                     </div>
                   </div>
                   <div v-if="currentAccount?.id === acc.id" class="i-carbon-checkmark" :style="{ color: 'var(--theme-primary)' }" />
