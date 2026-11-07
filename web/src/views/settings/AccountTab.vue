@@ -206,7 +206,7 @@ async function confirmClearStopped() {
       </BaseButton>
     </div>
 
-    <div v-else class="grid grid-cols-1 gap-4 lg:grid-cols-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <div
         v-for="acc in accounts"
         :key="acc.id"
