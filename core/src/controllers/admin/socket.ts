@@ -1,0 +1,159 @@
+/**
+ * Socket.IO setup and realtime emit functions.
+ */
+import type { AdminContext } from './context';
+export {};
+
+const { Server } = require('socket.io');
+const SocketIOServer = Server;
+
+const {
+    resolveAccId,
+} = require('./middleware');
+const { getAllowedOrigins } = require('./cors');
+
+/** socket 上复核会话有效性的间隔 */
+const SOCKET_TOKEN_RECHECK_MS = 5 * 60 * 1000;
+
+function applySocketSubscription(ctx: AdminContext, socket: any, accountRef: string = ''): void {
+    const incoming = String(accountRef || '').trim();
+    const resolved = incoming && incoming !== 'all' ? resolveAccId(ctx, incoming) : '';
+
+    for (const room of socket.rooms) {
+        if (room.startsWith('account:')) socket.leave(room);
+    }
+    if (resolved) {
+        socket.join(`account:${resolved}`);
+        socket.data.accountId = resolved;
+    } else {
+        socket.join('account:all');
+        socket.data.accountId = '';
+    }
+    socket.emit('subscribed', { accountId: socket.data.accountId || 'all' });
+
+    try {
+        const targetId = socket.data.accountId || '';
+        if (targetId && ctx.provider && typeof ctx.provider.getStatus === 'function') {
+            const currentStatus = ctx.provider.getStatus(targetId);
+            socket.emit('status:update', { accountId: targetId, status: currentStatus });
+        }
+        if (ctx.provider && typeof ctx.provider.getLogs === 'function') {
+            let currentLogs: any[] = ctx.provider.getLogs(targetId, { limit: 100 });
+            if (!Array.isArray(currentLogs)) currentLogs = [];
+
+            socket.emit('logs:snapshot', {
+                accountId: targetId || 'all',
+                logs: currentLogs,
+            });
+        }
+        if (ctx.provider && typeof ctx.provider.getAccountLogs === 'function') {
+            let currentAccountLogs: any[] = ctx.provider.getAccountLogs(100);
+            if (!Array.isArray(currentAccountLogs)) currentAccountLogs = [];
+
+            socket.emit('account-logs:snapshot', {
+                logs: currentAccountLogs,
+            });
+        }
+    } catch {
+        // ignore snapshot push errors
+    }
+}
+
+function setupSocketIO(ctx: AdminContext): void {
+    ctx.io = new SocketIOServer(ctx.server as any, {
+        path: '/socket.io',
+        cors: {
+            // 仅白名单来源会收到 ACAO 回显；跨域握手由浏览器侧拒绝，
+            // 且连接本身仍需 token（见下方中间件），双重兜底。
+            origin: getAllowedOrigins(),
+            methods: ['GET', 'POST'],
+            allowedHeaders: ['x-admin-token', 'x-account-id'],
+            credentials: true,
+        },
+    });
+    const io = ctx.io!; // 上一行刚赋值，运行时必不为空
+
+    io.use((socket: any, next: (err?: Error) => void) => {
+        const authToken = socket.handshake.auth && socket.handshake.auth.token
+            ? String(socket.handshake.auth.token)
+            : '';
+        const headerToken = socket.handshake.headers && socket.handshake.headers['x-admin-token']
+            ? String(socket.handshake.headers['x-admin-token'])
+            : '';
+        const token = authToken || headerToken;
+        const session = token ? ctx.tokens.get(token) : null;
+        if (!session) {
+            return next(new Error('Unauthorized'));
+        }
+        ctx.tokens.touch(token);
+        socket.data.adminToken = token;
+        return next();
+    });
+
+    io.on('connection', (socket: any) => {
+        const initialAccountRef = (socket.handshake.auth && socket.handshake.auth.accountId)
+            || (socket.handshake.query && socket.handshake.query.accountId)
+            || '';
+        applySocketSubscription(ctx, socket, initialAccountRef);
+        socket.emit('ready', { ok: true, ts: Date.now() });
+
+        // 长连接不会重复走 HTTP 鉴权：定时复核 token 是否已被踢下线/过期，
+        // 否则改密码或单会话强制后，旧标签页仍能通过 socket 持续收到实时数据。
+        const guard = setInterval(() => {
+            const current = socket.data && socket.data.adminToken;
+            if (!current || !ctx.tokens.get(String(current))) {
+                clearInterval(guard);
+                socket.disconnect(true);
+                return;
+            }
+            ctx.tokens.touch(String(current));
+        }, SOCKET_TOKEN_RECHECK_MS);
+        if (typeof guard.unref === 'function') guard.unref();
+        socket.on('disconnect', () => clearInterval(guard));
+
+        socket.on('subscribe', (payload: any) => {
+            const body = (payload && typeof payload === 'object') ? payload : {};
+            applySocketSubscription(ctx, socket, body.accountId || '');
+        });
+    });
+}
+
+function emitRealtimeStatus(ctx: AdminContext, accountId: string, status: any): void {
+    if (!ctx.io) return;
+    const id = String(accountId || '').trim();
+    if (!id) return;
+
+    // 推送到特定账号房间（只有订阅了该账号的用户能收到）
+    ctx.io.to(`account:${id}`).emit('status:update', { accountId: id, status });
+}
+
+function emitRealtimeLog(ctx: AdminContext, entry: any): void {
+    if (!ctx.io) return;
+    const payload = (entry && typeof entry === 'object') ? entry : {};
+    const id = String(payload.accountId || '').trim();
+
+    // 如果没有指定账号ID，不推送给任何人（防止数据泄露）
+    if (!id) return;
+
+    // 推送到特定账号房间（只有订阅了该账号的用户能收到）
+    ctx.io.to(`account:${id}`).emit('log:new', payload);
+}
+
+function emitRealtimeAccountLog(ctx: AdminContext, entry: any): void {
+    if (!ctx.io) return;
+    const payload = (entry && typeof entry === 'object') ? entry : {};
+    const id = String(payload.accountId || '').trim();
+
+    // 如果没有指定账号ID，不推送给任何人（防止数据泄露）
+    if (!id) return;
+
+    // 推送到特定账号房间（只有订阅了该账号的用户能收到）
+    ctx.io.to(`account:${id}`).emit('account-log:new', payload);
+}
+
+module.exports = {
+    setupSocketIO,
+    emitRealtimeStatus,
+    emitRealtimeLog,
+    emitRealtimeAccountLog,
+};

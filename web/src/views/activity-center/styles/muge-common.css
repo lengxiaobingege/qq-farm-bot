@@ -1,0 +1,277 @@
+.muge-card {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-card);
+  background: var(--ui-surface);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--ui-shadow-sm);
+}
+
+/* 汇总条：数值 | 进度 | 操作，一行铺满。 */
+.muge-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 28px;
+  padding: 16px 20px;
+}
+
+.muge-bar__value {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+}
+
+.muge-bar__value span {
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+
+.muge-bar__value strong {
+  color: var(--ui-ink);
+  font-size: 24px;
+  font-weight: var(--fw-700);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.muge-bar__value small {
+  margin-left: 4px;
+  color: var(--ui-muted);
+  font-size: 13px;
+  font-weight: var(--fw-500);
+}
+
+.muge-bar__progress {
+  display: flex;
+  min-width: min(100%, 240px);
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.muge-bar__progress em {
+  color: var(--ui-subtle);
+  font-style: normal;
+}
+
+.muge-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.muge-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ui-surface-soft);
+}
+
+.muge-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #9fd17d, var(--ui-primary));
+  transition: width 0.4s ease;
+}
+
+/* 档位、任务：与商城商品同一种横向小卡片，自动换列，每行高度随内容。 */
+.muge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.muge-grid.is-small {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+}
+
+.muge-item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  transition:
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.muge-item.is-compact {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.muge-item.is-ready {
+  border-color: color-mix(in srgb, var(--ui-primary) 45%, var(--ui-border));
+  background: color-mix(in srgb, var(--ui-primary-soft) 60%, var(--ui-surface));
+}
+
+.muge-item.is-done,
+.muge-item.is-locked {
+  opacity: 0.6;
+}
+
+.muge-item__well {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--ui-surface-soft);
+}
+
+.muge-item.is-compact .muge-item__well {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.muge-item__well img {
+  width: 76%;
+  height: 76%;
+  object-fit: contain;
+}
+
+.muge-item__main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.muge-item__main strong {
+  overflow: hidden;
+  color: var(--ui-ink);
+  font-size: 14px;
+  font-weight: var(--fw-650);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.muge-item__main span {
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muge-item__main b {
+  color: var(--ui-ink);
+  font-weight: var(--fw-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.muge-status {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  color: var(--ui-subtle);
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.muge-status.is-ready {
+  padding: 1px 9px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--ui-primary-fill);
+  font-weight: var(--fw-600);
+  line-height: 20px;
+}
+
+.muge-status.is-done {
+  color: var(--ui-primary);
+}
+
+.muge-status.is-idle {
+  color: var(--ui-muted);
+}
+
+/* 分组标题：与图鉴分组同一种色标 + 标题 + 计数。 */
+.muge-section {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.muge-section__head {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+}
+
+details > .muge-section__head {
+  cursor: pointer;
+}
+
+.muge-section__head::-webkit-details-marker {
+  display: none;
+}
+
+.muge-section__head > i {
+  width: 3px;
+  height: 14px;
+  flex: none;
+  border-radius: 2px;
+  background: var(--ui-primary);
+}
+
+.muge-section__head h2 {
+  color: var(--ui-ink);
+  font-size: 14px;
+  font-weight: var(--fw-650);
+}
+
+.muge-section__head > span:not(.muge-section__chevron) {
+  color: var(--ui-subtle);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.muge-section__chevron {
+  color: var(--ui-subtle);
+  transition: transform 0.16s ease;
+}
+
+details:not([open]) .muge-section__chevron {
+  transform: rotate(-90deg);
+}
+
+details:not([open]) > .muge-section__head > i {
+  background: var(--ui-border-strong);
+}
+
+.muge-section__head:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (max-width: 640px) {
+  .muge-bar {
+    padding: 14px 16px;
+  }
+
+  .muge-bar__actions,
+  .muge-bar > :deep(.n-button) {
+    width: 100%;
+  }
+
+  .muge-bar__actions > :deep(.n-button) {
+    flex: 1;
+  }
+}

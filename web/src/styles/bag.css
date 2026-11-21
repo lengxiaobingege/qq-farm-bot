@@ -1,0 +1,56 @@
+/* 农场/牧场背包共享布局：卡片材质由 BagGridCard 统一复用，这里只抽页面级工具栏与网格。 */
+
+.bag-card-shell {
+  --bag-pad: 16px;
+  padding: var(--bag-pad);
+}
+
+@media (min-width: 640px) {
+  .bag-card-shell {
+    --bag-pad: 20px;
+  }
+}
+
+.bag-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: calc(-1 * var(--bag-pad)) calc(-1 * var(--bag-pad)) 14px;
+  padding: 12px var(--bag-pad);
+  border-radius: var(--ui-radius-card) var(--ui-radius-card) 0 0;
+  background: var(--ui-table-head);
+  box-shadow: 0 1px 0 var(--ui-border);
+}
+
+.bag-categories {
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.bag-categories::-webkit-scrollbar {
+  display: none;
+}
+
+.bag-categories :deep(.n-button) {
+  flex: none;
+}
+
+.bag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 520px) {
+  .bag-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}

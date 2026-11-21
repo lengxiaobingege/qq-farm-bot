@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package gamepb.shoppb;
+
+import "corepb.proto";
+
+// ============ 商店类型: 1=道具商店, 2=种子商店, 3=宠物商店 ============
+enum ShopType {
+    SHOP_TYPE_UNKNOWN = 0;
+    ITEM = 1;
+    SEED = 2;
+    PET = 3;
+    SKIN = 4;
+    CUB = 5;
+    FEED = 6;
+}
+
+// ============ 商店概览 ============
+message ShopProfile {
+    int64 shop_id = 1;      // 商店ID
+    string shop_name = 2;   // 商店名称
+    int32 shop_type = 3;    // 商店类型
+}
+
+// ============ 商品信息 ============
+message GoodsInfo {
+    int64 id = 1;              // 商品ID (用于购买)
+    int64 bought_num = 2;      // 已购买数量
+    int64 price = 3;           // 基础单价；币种由商店类型决定
+    int64 limit_count = 4;     // 限购数量 (0=不限购)
+    bool unlocked = 5;         // 是否已解锁
+    int64 item_id = 6;         // 物品ID
+    int64 item_count = 7;      // 每次购买获得数量
+    repeated Cond conds = 8;   // 解锁条件
+    bool is_display_countdown = 9;
+    int64 end_time = 10;
+    int64 discount_price = 11; // 有效促销期内可为 0（免费）
+    int64 discount_start_time = 12;
+    int64 discount_end_time = 13;
+    repeated ShowCond show_conds = 14;
+    bool owned = 15;           // 是否已拥有（如装扮）
+}
+
+message ShowCond {
+    string type = 1;
+    string params = 2;
+}
+
+// ============ 解锁条件 ============
+enum CondType {
+    COND_TYPE_UNKNOWN = 0;
+    MIN_LEVEL = 1;     // 最低等级要求
+    UNLOCK_CARD = 2;   // 需要解锁卡
+}
+
+message Cond {
+    int32 type = 1;    // CondType
+    int64 param = 2;   // 参数值 (如等级要求的等级数)
+}
+
+// ============ 请求/回复 ============
+
+// --- 获取商店列表 ---
+message ShopProfilesRequest {
+    int32 unknown_1 = 1; // 实包固定发 2（2026-11-16 抓包）
+}
+
+message ShopProfilesReply {
+    repeated ShopProfile shop_profiles = 1;
+}
+
+// --- 获取商店商品 ---
+message ShopInfoRequest {
+    int64 shop_id = 1;
+}
+
+message ShopInfoReply {
+    repeated GoodsInfo goods_list = 1;
+}
+
+// --- 购买商品 ---
+// 2026-11-16 牧场幼崽实测帧：08934e 1003 18b808 2001
+//   = {goods_id:10003, num:3, price:1080, f4:1}，回包 goods.animal_id=60002
+//   确认幼崽也走 BuyGoods。f4 语义未确认（实测=1），暂不参与编码。
+message BuyGoodsRequest {
+    int64 goods_id = 1;   // 商品ID (GoodsInfo.id)
+    int64 num = 2;        // 购买数量
+    int64 price = 3;      // 单价
+    int64 unknown_4 = 4;  // 实测 1（买幼崽帧），语义未确认
+}
+
+message BuyGoodsReply {
+    GoodsInfo goods = 1;                  // 更新后的商品信息
+    repeated corepb.Item get_items = 2;   // 获得的物品
+    repeated corepb.Item cost_items = 3;  // 消耗的物品
+}
+
+// --- 轮换商店购买（2026-11-16 实测）---
+// 请求 {101, 1, 1794758400, 1}：f3 是轮换周期起始日（与 RotationShopInfo.f3 一致），
+// f4 实测=1 语义未确认。回包为空。
+message RotationBuyGoodsRequest {
+    int64 goods_id = 1;        // 实测 101
+    int64 num = 2;             // 实测 1
+    int64 rotation_day_sec = 3; // 实测 1794758400 = 2026-11-17 00:00
+    int64 unknown_4 = 4;       // 实测 1
+}
+
+message RotationBuyGoodsReply {}
+
+// --- 轮换商店信息（2026-11-16 16:57 实包）---
+// 请求 0807（shop_id=7「仓鼠驿站」，松果货币）；RotationBuyGoods 的 f3 用回包 f3 的周期起始日。
+message RotationShopInfoRequest {
+    int64 shop_id = 1;             // 实测 7
+}
+
+// 轮换商店商品：实测 f1=分类ID、f2=、f3=goods_id、f5=item_id、f6=价格、f10=限购、
+// f12=解锁条件(文案)、f13=商品小类。字段语义未完全确认的以 unknown_ 命名。
+message RotationGoods {
+    int64 category_id = 1;         // 实测 1/2
+    int64 unknown_2 = 2;           // 实测 1
+    int64 goods_id = 3;            // 实测 80011/80012
+    int64 unknown_4 = 4;           // 实测 1
+    int64 item_id = 5;             // 实测 7002/1008
+    int64 price = 6;               // 实测 3/12/750
+    int64 unknown_10 = 10;
+    bytes unlock_cond = 12;        // 实测 {f1:"最低等级", f2:"5"}
+    int64 sub_type = 13;           // 实测 101/102
+}
+
+message RotationCategory {
+    int64 id = 1;                  // 实测 1「便便特惠」/2「农场精选」
+    string name = 2;
+    int64 unknown_3 = 3;           // 实测 10/20
+}
+
+message RotationShopInfoReply {
+    int32 unknown_1 = 1;           // 实测 1
+    int32 unknown_2 = 2;           // 实测 1
+    int64 rotation_day_sec = 3;    // 实测 1794758400 = 2026-11-17 00:00
+    int32 unknown_4 = 4;           // 实测 1
+    repeated RotationCategory categories = 5;
+    repeated RotationGoods goods = 6;
+}
+
+// --- 商品解锁推送 ---
+message GoodsUnlockNotify {
+    repeated GoodsInfo goods_list = 1;
+}

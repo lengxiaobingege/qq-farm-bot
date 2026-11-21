@@ -1,0 +1,208 @@
+.muge {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding-bottom: 24px;
+}
+
+.muge h1,
+.muge h2,
+.muge h3,
+.muge p {
+  margin: 0;
+}
+
+/* 标题行与全站页头（PageHeader）同高同字号。 */
+.muge-head {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 16px;
+}
+
+.muge-head__lead {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.muge-head__icon {
+  flex: none;
+  object-fit: contain;
+}
+
+.muge-head h1 {
+  overflow: hidden;
+  color: var(--ui-ink);
+  font-size: 22px;
+  font-weight: var(--fw-700);
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muge-head p {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  color: var(--ui-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.muge-head__badge {
+  margin-left: 4px;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: var(--ui-primary);
+  background: var(--ui-primary-soft);
+  font-weight: var(--fw-600);
+  line-height: 18px;
+}
+
+.muge-head__badge.is-ended {
+  color: var(--ui-muted);
+  background: var(--ui-surface-soft);
+}
+
+.muge-head__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 页签与游戏商城的页签同一种线型样式，下边线贯穿整行。 */
+.muge-tabs {
+  margin-top: 8px;
+}
+
+.muge-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.muge-tab__dot {
+  position: absolute;
+  top: -1px;
+  right: -9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ui-danger);
+}
+
+.muge-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 16px;
+}
+
+.muge-error,
+.muge-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--ui-radius-control);
+  font-size: 13px;
+}
+
+.muge-error {
+  color: var(--ui-danger);
+  background: var(--ui-danger-soft);
+}
+
+.muge-notice {
+  color: var(--ui-warning);
+  background: var(--ui-warning-soft);
+}
+
+.muge-rules {
+  color: var(--ui-ink);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.muge-rules p {
+  margin: 0 0 6px;
+}
+
+.muge-rules p.is-heading {
+  margin-top: 12px;
+  font-weight: var(--fw-650);
+}
+
+.muge-rules p.is-heading:first-child {
+  margin-top: 0;
+}
+
+.muge-rules__empty {
+  margin: 0;
+  padding: 24px 0;
+  color: var(--ui-muted);
+  text-align: center;
+}
+
+@media (max-width: 1023px) {
+  .muge-head {
+    padding-top: 12px;
+  }
+
+  .muge-head h1 {
+    font-size: 19px;
+  }
+}
+
+@media (max-width: 640px) {
+  .muge-head {
+    display: grid;
+    grid-template-columns: auto 32px minmax(0, 1fr) auto;
+    gap: 4px 8px;
+  }
+
+  .muge-head__lead,
+  .muge-head__text {
+    display: contents;
+  }
+
+  .muge-head__icon {
+    grid-area: 1 / 2;
+  }
+
+  .muge-head h1 {
+    grid-area: 1 / 3;
+  }
+
+  .muge-head__actions {
+    grid-area: 1 / 4;
+  }
+
+  .muge-head p {
+    grid-area: 2 / 2 / auto / -1;
+    flex-wrap: wrap;
+    margin-top: 0;
+    white-space: normal;
+  }
+
+  .muge-head__actions .muge-head__rules-label {
+    display: none;
+  }
+
+  .muge-tabs {
+    --n-tab-gap: 10px !important;
+    --n-tab-font-size: 13px !important;
+  }
+
+  .muge-tab {
+    gap: 4px;
+  }
+}

@@ -1,0 +1,87 @@
+# Dependencies
+node_modules/
+bun.lock
+
+# Build output
+core/dist/
+web/dist/
+core/client.js
+
+# Runtime data (contains user credentials and logs)
+core/data/
+
+# Debug/test scripts
+core/scripts/
+
+# Local captures, Spine source/renderer, and browser review artifacts
+/output/
+/.playwright-cli/
+
+# Build analysis
+web/stats.html
+
+# Logs
+*.log
+*.log.prev
+*.beat
+
+# Runtime process state
+*.pid
+*.pid.lock
+
+# Misc
+core/share.txt
+Update.log
+*.tgz
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Crash dumps (node abort / WASM trap 时生成)
+core.[0-9]*
+
+# Test/coverage
+**/test/
+**/tests/
+!core/tests/
+!core/tests/*.test.js
+!web/tests/
+!web/tests/*.test.mjs
+coverage/
+.nyc_output/
+
+# Cleanup script (self-deleting)
+cleanup.bat
+
+# Local protocol captures and generated runtime analysis
+protocol-captures/
+/docs/performance-analysis/
+
+# Local runtime state (not versioned)
+core/src/utils/proto-bundle.json
+core/store.json
+open-api-config/
+.monkeycode/
+
+# Login QR code artifacts (generated on demand, contain session QR images)
+login-qr.html
+login-qr.jpg
+login-qr.png
+
+# Local agent memory (session conventions and internal ops notes, not project source)
+CODEBUDDY.md
+
+# Local environment (may contain local-only settings)
+.env
+
+# 运行期数据快照/备份目录（含凭据、密钥与日志，禁止入库）
+core/data.*/
+*.secret.key
+admin-sessions.json
+login-attempts.json

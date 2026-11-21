@@ -1,0 +1,13 @@
+{
+  "_comment": "牧场活动归属表。ActivityList 是全局流、没有场景字段，只能靠这些信号把牧场活动从农场活动中心里剔除。新增牧场活动时，把它的界面 uid 前缀或活动 id 前缀/精确 id 补进来即可，无需改代码。所有匹配都区分大小写。",
+  "_example": {
+    "uidPrefixes": ["Muge"],
+    "idPrefixes": ["20261117"],
+    "exactIds": [],
+    "excludeIds": []
+  },
+  "uidPrefixes": ["Muge"],
+  "idPrefixes": ["20261117"],
+  "exactIds": [],
+  "excludeIds": []
+}

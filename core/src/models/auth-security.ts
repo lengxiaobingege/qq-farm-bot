@@ -1,0 +1,190 @@
+export {};
+const fs = require('node:fs');
+const crypto = require('node:crypto');
+const { getDataFile, ensureDataDir } = require('../config/runtime-paths');
+const { writeJsonFileAtomic } = require('../services/json-db');
+
+const LOGIN_ATTEMPTS_FILE: string = getDataFile('login-attempts.json');
+// 失败锁定按客户端 IP 分桶：单个来源的失败不会把管理员账号整体锁死（防 DoS），
+// 同时因为客户端 IP 已不可伪造，攻击者也无法靠换 IP 绕过每个桶的计数。
+const ADMIN_ATTEMPT_PREFIX = 'admin:';
+function adminAttemptKey(ip: string): string {
+    return `${ADMIN_ATTEMPT_PREFIX}${String(ip || 'unknown').trim() || 'unknown'}`;
+}
+
+const SALT_LENGTH = 32;
+const ITERATIONS = 100000;
+const KEY_LENGTH = 64;
+const DIGEST = 'sha512';
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000;
+const RATE_LIMIT_WINDOW = 60 * 1000;
+const MAX_ATTEMPTS_PER_IP = 10;
+
+interface LoginAttempt {
+    count: number;
+    windowStart?: number;
+    firstAttempt?: number;
+    lastAttempt?: number;
+    lockedUntil?: number;
+}
+
+interface PasswordStrengthResult {
+    valid: boolean;
+    errors: string[];
+}
+
+let loginAttempts: Record<string, LoginAttempt> = {};
+
+function loadLoginAttempts(): void {
+    ensureDataDir();
+    try {
+        if (!fs.existsSync(LOGIN_ATTEMPTS_FILE)) {
+            loginAttempts = {};
+            return;
+        }
+        const raw = JSON.parse(fs.readFileSync(LOGIN_ATTEMPTS_FILE, 'utf8'));
+        const source = raw && typeof raw === 'object' ? raw : {};
+        loginAttempts = {};
+        for (const [key, value] of Object.entries(source)) {
+            if ((key.startsWith('admin:') || key.startsWith('ip:')) && value && typeof value === 'object') {
+                loginAttempts[key] = value as LoginAttempt;
+            }
+        }
+    } catch {
+        loginAttempts = {};
+    }
+}
+
+function saveLoginAttempts(): void {
+    ensureDataDir();
+    try {
+        writeJsonFileAtomic(LOGIN_ATTEMPTS_FILE, loginAttempts, 2, 0o600);
+    } catch (e: any) {
+        console.error('保存登录尝试记录失败:', e.message);
+    }
+}
+
+function cleanExpiredAttempts(): void {
+    const now = Date.now();
+    let changed = false;
+    for (const key of Object.keys(loginAttempts)) {
+        const attempt = loginAttempts[key];
+        const lockExpired = !!attempt.lockedUntil && attempt.lockedUntil < now;
+        const windowExpired = !attempt.lockedUntil && !!attempt.windowStart
+            && now - attempt.windowStart > RATE_LIMIT_WINDOW;
+        if (lockExpired || windowExpired) {
+            delete loginAttempts[key];
+            changed = true;
+        }
+    }
+    if (changed) saveLoginAttempts();
+}
+
+function checkRateLimit(ip: string): { allowed: boolean; remainingMs?: number; message?: string } {
+    cleanExpiredAttempts();
+    const key = `ip:${ip}`;
+    const now = Date.now();
+    const attempt = loginAttempts[key];
+    if (!attempt || now - (attempt.windowStart || 0) > RATE_LIMIT_WINDOW) {
+        loginAttempts[key] = { count: 1, windowStart: now };
+        saveLoginAttempts();
+        return { allowed: true };
+    }
+    if (attempt.count >= MAX_ATTEMPTS_PER_IP) {
+        const remainingMs = RATE_LIMIT_WINDOW - (now - (attempt.windowStart || 0));
+        return { allowed: false, remainingMs, message: `请求过于频繁，请 ${Math.ceil(remainingMs / 1000)} 秒后重试` };
+    }
+    attempt.count++;
+    saveLoginAttempts();
+    return { allowed: true };
+}
+
+function checkAdminLockout(ip: string): { locked: boolean; remainingMs?: number; message?: string } {
+    cleanExpiredAttempts();
+    const attempt = loginAttempts[adminAttemptKey(ip)];
+    const now = Date.now();
+    if (attempt?.lockedUntil && attempt.lockedUntil > now) {
+        const remainingMs = attempt.lockedUntil - now;
+        return { locked: true, remainingMs, message: `账户已被锁定，请 ${Math.ceil(remainingMs / 60000)} 分钟后重试` };
+    }
+    return { locked: false };
+}
+
+function recordFailedAttempt(ip: string): { locked: boolean; message?: string; remainingAttempts?: number } {
+    const now = Date.now();
+    const key = adminAttemptKey(ip);
+    const attempt = loginAttempts[key] || { count: 0, firstAttempt: now, windowStart: now };
+    attempt.count++;
+    attempt.lastAttempt = now;
+    loginAttempts[key] = attempt;
+    if (attempt.count >= MAX_LOGIN_ATTEMPTS) {
+        attempt.lockedUntil = now + LOCKOUT_DURATION;
+        saveLoginAttempts();
+        return { locked: true, message: `登录失败次数过多，账户已被锁定 ${LOCKOUT_DURATION / 60000} 分钟` };
+    }
+    saveLoginAttempts();
+    return { locked: false, remainingAttempts: MAX_LOGIN_ATTEMPTS - attempt.count };
+}
+
+function clearFailedAttempts(ip: string): void {
+    const key = adminAttemptKey(ip);
+    if (loginAttempts[key]) {
+        delete loginAttempts[key];
+        saveLoginAttempts();
+    }
+}
+
+function validatePasswordStrength(password: string): PasswordStrengthResult {
+    const errors: string[] = [];
+    if (password.length < 6) errors.push('密码长度至少6位');
+    if (password.length > 128) errors.push('密码长度不能超过128位');
+    let typeCount = 0;
+    if (/[a-z]/.test(password)) typeCount++;
+    if (/[A-Z]/.test(password)) typeCount++;
+    if (/\d/.test(password)) typeCount++;
+    if (/[!@#$%^&*(),.?":{}|<>_\-+=[\]\\;'/`~]/.test(password)) typeCount++;
+    if (typeCount < 2) errors.push('密码必须包含大写字母、小写字母、数字、特殊符号中的至少两种');
+    if (['password', '123456', 'qwerty', 'abc123', '111111', '000000'].includes(password.toLowerCase())) {
+        errors.push('密码过于简单，请使用更复杂的密码');
+    }
+    return { valid: errors.length === 0, errors };
+}
+
+function hashPassword(password: string, salt: string | null = null): string {
+    const nextSalt = salt || crypto.randomBytes(SALT_LENGTH).toString('hex');
+    const hash = crypto.pbkdf2Sync(password, nextSalt, ITERATIONS, KEY_LENGTH, DIGEST).toString('hex');
+    return `${nextSalt}:${hash}`;
+}
+
+function verifyPassword(password: string, storedPassword: string): boolean {
+    const stored = String(storedPassword || '');
+    // 只接受 pbkdf2 的 salt:hash 格式。早期无盐 sha256 摘要不再被承认：
+    // 那种格式一旦泄露可被直接离线爆破，且没有盐，必须强制重设密码而不是继续兼容。
+    if (!stored.includes(':')) return false;
+    const [salt, hash] = stored.split(':');
+    if (!salt || !hash || hash.length !== KEY_LENGTH * 2) return false;
+    const nextHash = crypto.pbkdf2Sync(password, salt, ITERATIONS, KEY_LENGTH, DIGEST);
+    const expected = Buffer.from(hash, 'hex');
+    if (expected.length !== nextHash.length) return false;
+    return crypto.timingSafeEqual(expected, nextHash);
+}
+
+function needsRehash(storedPassword: string): boolean {
+    const stored = String(storedPassword || '');
+    if (!stored.includes(':')) return false;
+    const [salt, hash] = stored.split(':');
+    return !salt || !hash;
+}
+
+module.exports = {
+    loadLoginAttempts,
+    checkRateLimit,
+    checkAdminLockout,
+    recordFailedAttempt,
+    clearFailedAttempts,
+    validatePasswordStrength,
+    hashPassword,
+    verifyPassword,
+    needsRehash,
+};
