@@ -18,9 +18,18 @@
 | `event-notify-state.json` | 掉线提醒周期状态（重启后不重复推） | 否 |
 | `kickout-guard.json` | 被挤下线的让位档位与截止时间 | 否 |
 | `logs/` | 运行日志（按日切分） | 是 |
-| `seed/`、`qrcode` 等 | 扫码临时产物 | 是 |
+| `certs/` | 面板 HTTPS 自签证书与私钥 | **是** |
+| `tsdk/` | 各账号 TSDK WASM 可写数据 | 是 |
+| `stats/`、`ranch-stats/`、`ranch-operations/` | 统计与牧场操作记录 | 否 |
+| `known_friend_gids/` | 好友 GID 缓存 | 是 |
+| `friend-pet-*.json`、`friend-bad-state-*.json` | 好友宠物缓存、黑名单状态（按账号哈希分文件） | 是 |
+| `activity-remind-state.json`、`mystery-shop-auto-state.json` | 活动提醒与神秘商人自动购买的去重状态 | 否 |
 
 账号编号直接作文件名；非数字的历史编号会做可逆十六进制编码，避免路径穿越与 Windows 保留名冲突，**编号本身不变**。
+
+以账号哈希命名的文件（`friend-pet-<sha256>.json` 等）用账号 ID 的 SHA-256 前缀，改账号 ID 会变成另一份缓存。
+
+> 这是运行时实际产生的目录，`data.pre-*`、`data.pre-restore-*` 这类是迁移/还原时留的旁路快照，确认无误后可删。
 
 ## 二、配置拆分与迁移
 

@@ -64,7 +64,13 @@ node tools/download-game-images.js --input <配置目录> --output <图片目录
 
 ### download-mutant-images.js
 
-单独补变异（黄金/超变）效果图，用于图鉴的变异展示位。
+按 `MutantEffect.json` 下载变异图，输出 `<变异ID>.png`（默认 `tools/img/mutant`）。
+
+```bash
+node tools/download-mutant-images.js --input <配置目录> --output <图片目录> --source <settings 目录>
+```
+
+与 `download-game-images.js` 共用同一套 manifest 解析逻辑，区别是图源字段来自变异配置而不是物品配置。
 
 ### 压缩与缓存
 
@@ -120,10 +126,31 @@ node tools/restore-data-backup.js 2026-11-06    # 恢复指定日期
 
 还原前自动把当前 `core/data` 存成 `core/data.pre-restore-<时间戳>/`；解密依赖 `core/data/.secret.key`，删了它旧备份就废了。
 
-### sync-upstream.js / update-badges.js
+### sync-upstream.js — 上游逐提交甄别
 
-- `sync-upstream.js`：从上游拉取配置或文件做对比（只看差异，不自动覆盖）
-- `update-badges.js`：刷新 README 顶部的版本/协议徽章
+本地与上游历史不相关，不能 `git merge`，这个脚本把「逐提交判断本地是否已有」的手工流程固化了：
+
+1. `fetch upstream`，列出未甄别过的提交（已甄别记录在 `tools/.sync-upstream-reviewed.json`）
+2. 每个提交双重甄别：`patch-id` 精确比对 + 特征行比对（取有信息量的新增行在本地对应文件里 grep，按命中率分类）
+3. 输出三档报告：已存在 / 建议合入 / 待人工确认
+
+```bash
+node tools/sync-upstream.js                # 拉取并输出报告
+node tools/sync-upstream.js --limit 30     # 只看最近 30 个提交
+node tools/sync-upstream.js --show <sha>   # 看某提交完整 diff
+node tools/sync-upstream.js --pick <sha>   # cherry-pick 并跑全量测试（冲突即停，不自动改代码）
+node tools/sync-upstream.js --mark-done <sha>
+```
+
+> 手工搬上游代码时优先用它，比肉眼比对可靠：`--pick` 只执行 cherry-pick，冲突会停下而不是乱改。
+
+### update-badges.js — README 徽章同步
+
+消除徽章与代码的漂移，数据来源：`version` ← `core/package.json` 的 `version`；`protocol` ← `core/src/config/config.ts` 的 `DEFAULT_WX_CLIENT_VERSION`；`tests` ← 跑 core 全量测试并解析输出。
+
+```bash
+node tools/update-badges.js
+```
 
 ## 通用约定
 
