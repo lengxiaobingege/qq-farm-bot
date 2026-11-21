@@ -134,10 +134,18 @@ function mountAuthRoutes(app: Application, ctx: AdminContext): void {
             return res.json({ ok: true, data: loginPayload(token, result) });
         }
 
-        // 引导例外：系统里既没有任何受信任设备、也没有活跃会话，说明这是启用该机制后的第一次登录。
-        // 此时没有任何「已认证过的设备」可比对，只能放行并把这台设备登记为受信任，
-        // 同时推送告知——如果这次登录不是你本人，你会立刻收到消息。
-        const bootstrap = !adminStore.hasTrustedDevices() && ctx.tokens.size === 0;
+        // 引导例外：系统里没有任何受信任设备时放行一台设备做引导。
+        // 覆盖两种场景：全新部署首次登录；数据迁移后设备名单为空（旧数据常带会话但没有设备记录）。
+        // 迁移场景下推送渠道往往还没配置，验证码发不出去会把人锁死，所以不能要求先收到验证码。
+        // 判定刻意不看活跃会话数：会话属于别的浏览器，无法证明当前设备可信。
+        const bootstrap = !adminStore.hasTrustedDevices();
+        if (bootstrap && ctx.tokens.size > 0) {
+            adminLogger.warn("无受信任设备但存在历史会话（疑似数据迁移），已放行首台设备引导登录", {
+                ip: clientIp,
+                device: deviceLabel,
+                sessions: ctx.tokens.size,
+            });
+        }
         if (bootstrap && deviceId) {
             adminStore.trustDevice(deviceId, userAgent);
             const { token, evicted } = issueSession(ctx, req);
@@ -170,7 +178,7 @@ function mountAuthRoutes(app: Application, ctx: AdminContext): void {
             return res.status(503).json({
                 ok: false,
                 errorType: 'push_failed',
-                error: `验证码推送失败：${pushed.reason || '推送渠道不可用'}。请检查系统设置里的通知渠道，或到服务器日志（admin 模块）查看本次验证码`,
+                error: `验证码推送失败：${pushed.reason || '推送渠道不可用'}。请检查系统设置里的通知渠道；也可以到服务器执行「journalctl -u qq-farm-bot | grep 登录验证码」或查看 core/data/logs 下当日日志取码；若在局域网内，可直接用 http://<内网IP>:3007 完成首台设备引导`,
             });
         }
         adminLogger.info('新设备登录已发送验证码', { ip: clientIp, device: deviceLabel, challengeId: challenge.id });
