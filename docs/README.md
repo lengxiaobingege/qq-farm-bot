@@ -35,9 +35,11 @@
 
 **研究记录**（某次抓包的结论，带日期，反映当时版本）
 
-`collections-20261101` / `shop-protocols` / `pet-protocols` / `friend-pet-cache` / `milk-tea-20261015` / `solar-calendar-20261016` / `muge-20261117` / `friend-recall-20261118` / `pasture-protocols` / `ranch-isolation-audit` / `upstream-review-20261119`
+`collections-20261101` / `shop-protocols` / `pet-protocols` / `friend-pet-cache` / `milk-tea-20261015` / `solar-calendar-20261016` / `muge-20261117` / `friend-recall-20261118`
 
 这些文档**不改写结论**，只在开头标注适用范围；游戏版本变化后如果字段对不上，以新抓包为准，并新开文档而不是改写旧的。
+
+**决策记录**（为什么当初这么定，内容冻结）在 [adr/](adr/README.md)：牧场为什么另开 `ranchv2`、旧 pasture 模块的勘误、2026-11-19 上游同步评审。引用时注明是历史依据，不要当作现状。
 
 ## 维护约定
 

@@ -1,3 +1,7 @@
+> **状态**：已废弃：旧 pasture 模块及其接口、proto 全部删除，牧场统一走 ranch 模块
+> **类型**：决策记录（ADR），内容冻结不改写；如需变更请新开一篇并标注取代关系
+> **原路径**：`docs/pasture-protocols.md`
+
 > **归档文档（2026-11-16）：旧版 `services/pasture` 及其 `/api/pasture` 接口、`animalpb.proto`/`homesteadpb.proto`
 > 已随隔离审计全部删除，牧场现统一使用 ranch 模块（见 [`docs/ranch.md`](./ranch.md)）。**
 > 本文档仅作为协议勘误过程的历史记录保留，文中提到的源码路径均已不存在，请勿据此改代码。
