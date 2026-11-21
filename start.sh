@@ -228,15 +228,16 @@ fi
 echo "Started qq-farm-bot with PID $app_pid."
 echo "Logs: $LOG_FILE"
 
-# 公网入口固定在 3000；主端口由 .env 的 PORT 决定（默认 3007）。
-# 端口不一致时用 socat 做 TCP 透明转发，保证外部地址与端口都不变。
+# 端口转发默认关闭：公网入口请用 Cloudflare Tunnel / Nginx / Caddy 直接回源到主端口。
+# 确实需要固定外部端口时显式传入，例如：EDGE_PORT=8080 ./start.sh
 app_port="$(grep -E '^PORT=' "$SCRIPT_DIR/.env" 2>/dev/null | head -1 | cut -d= -f2 | tr -d ' \r')"
 app_port="${app_port:-3007}"
-if [[ "$app_port" != "3000" ]] && command -v socat >/dev/null 2>&1; then
-    pkill -f '^socat TCP-LISTEN:3000' 2>/dev/null || true
-    setsid socat "TCP-LISTEN:3000,fork,reuseaddr,backlog=128" "TCP:127.0.0.1:${app_port}" \
+edge_port="${EDGE_PORT:-}"
+if [[ -n "$edge_port" && "$edge_port" != "$app_port" ]] && command -v socat >/dev/null 2>&1; then
+    pkill -f "^socat TCP-LISTEN:${edge_port}" 2>/dev/null || true
+    setsid socat "TCP-LISTEN:${edge_port},fork,reuseaddr,backlog=128" "TCP:127.0.0.1:${app_port}" \
         >/dev/null 2>&1 &
-    echo "Edge forward: 3000 -> ${app_port}"
+    echo "Edge forward: ${edge_port} -> ${app_port}"
 fi
 
 start_watchdog_if_needed

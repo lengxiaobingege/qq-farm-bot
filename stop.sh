@@ -7,10 +7,10 @@ LOCK_DIR="$SCRIPT_DIR/.start.lock"
 
 cd "$SCRIPT_DIR"
 
-# start.sh 在 PORT 与 3000 不一致时会起 socat 做转发，它已 setsid 脱离进程组，
-# 只 kill node 的进程组清不掉。这里统一收尾，避免停服后 3000 仍被占着。
+# start.sh 在设置 EDGE_PORT 时会起 socat 做转发，它已 setsid 脱离进程组，
+# 只 kill node 的进程组清不掉。这里统一收尾，避免停服后转发端口仍被占着。
 stop_forwarder() {
-    pkill -f '^socat TCP-LISTEN:3000' 2>/dev/null || true
+    pkill -f '^socat TCP-LISTEN:' 2>/dev/null || true
 }
 
 # 不在 pid 文件里的实例（例如手工 node core/client.js）也要停掉，否则 stop.sh
