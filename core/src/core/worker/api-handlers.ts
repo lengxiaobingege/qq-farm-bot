@@ -58,6 +58,9 @@ async function handleApiCall(msg: any): Promise<void> {
             case 'clearIllustratedNew':
                 result = await require('../../services/illustrated').clearIllustratedNew(args[0]);
                 break;
+            case 'clearRanchIllustratedNew':
+                result = await require('../../services/ranch/book').clearGiantBookNew();
+                break;
             case 'getSolarCalendar':
                 result = await require('../../services/solar-calendar').getSolarCalendar();
                 break;

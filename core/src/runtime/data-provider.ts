@@ -127,6 +127,7 @@ function createDataProvider(options: DataProviderOptions) {
         operateCollections: (accountRef: string, action: string, input: any) => callWorkerApi(resolveAccountRefId(accountRef), 'operateCollections', action, input),
         claimIllustratedRewards: (accountRef: string, type: number) => callWorkerApi(resolveAccountRefId(accountRef), 'claimIllustratedRewards', type),
         clearIllustratedNew: (accountRef: string, fruitIds: number[]) => callWorkerApi(resolveAccountRefId(accountRef), 'clearIllustratedNew', fruitIds),
+        clearRanchIllustratedNew: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'clearRanchIllustratedNew'),
         getSolarCalendar: (accountRef: string) => callWorkerApi(resolveAccountRefId(accountRef), 'getSolarCalendar'),
         operateSolarCalendar: (accountRef: string, action: string, input: any) => callWorkerApi(resolveAccountRefId(accountRef), 'operateSolarCalendar', action, input),
         getFriends: (accountRef: string, forceSync = false) => callWorkerApi(resolveAccountRefId(accountRef), 'getFriends', forceSync, true),

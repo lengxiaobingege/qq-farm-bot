@@ -52,6 +52,8 @@ function mountCommerceRoutes(app: Application, ctx: AdminContext): void {
     app.post('/api/solar-calendar/:action', withAccount((accountId: string, req: Request) => ctx.provider.operateSolarCalendar(accountId, req.params.action, req.body)));
     app.post('/api/illustrated/claim', withAccount((accountId: string, req: Request) => ctx.provider.claimIllustratedRewards(accountId, req.body?.type)));
     app.post('/api/illustrated/clear-new', withAccount((accountId: string, req: Request) => ctx.provider.clearIllustratedNew(accountId, req.body?.fruitIds)));
+    // 牧场图鉴（含巨大图鉴）一键已读
+    app.post('/api/ranch/illustrated/clear-new', withAccount((accountId: string) => ctx.provider.clearRanchIllustratedNew(accountId)));
 
     app.get('/api/activities/milk-tea', withAccount((accountId: string, req: Request) => ctx.provider.getMilkTeaActivity(accountId, req.query.page || 'shop', req.query)));
     app.post('/api/activities/milk-tea/:action', withAccount((accountId: string, req: Request) => ctx.provider.operateMilkTeaActivity(accountId, req.params.action, req.body)));
