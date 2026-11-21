@@ -1,55 +1,75 @@
 # 个人页宠物协议
 
-## 概述
+> **适用版本**：`1.15.x`（2026-09-14 抓包）
+> **现状**：字段结论仍有效；`field_10` 与守护记录请求字段语义未证明
+> **实现**：`core/src/services/pets.ts`
 
-本文档记录个人页宠物页面（个人 → 宠物）相关协议的分析结论，包括图鉴状态位、激活、上场与收回、狗粮和守护记录各协议的请求 / 回包结构。适用读者为需要实现或核对宠物功能的开发者。
+个人 → 宠物页的每个动作都是一次 `gamepb.dogpb.DogService` RPC。
 
-## 背景
+## 一、状态位怎么判
 
-个人 → 宠物页面上的每个动作都是一次 `gamepb.dogpb.DogService` RPC。本文结论来自 2026-09-14 的抓包复核（目录由解码脚本参数传入，`pnpm -C core exec tsx ../tools/decode-latest-protocols.js <capture-dir> --all`）。
+`GetDogInfoReply.dogs[]` 是 `DogInfo`。别被前两个字段骗了：
 
-## 协议明细
+| 字段 | 实际表现 | 能不能用来判断 |
+| --- | --- | --- |
+| `status`（field 4） | **所有图鉴项都返回 1** | 不能 |
+| `level`（field 5） | **所有项都返回 100** | 不能 |
 
-### 图鉴项的状态位
-
-`GetDogInfoReply.dogs[]` 是 `DogInfo`，其中 `status`（字段 4）对所有图鉴项都返回 1，`level`（字段 5）对所有项都返回 100，两者都不能用来判断玩家状态。真正的状态位是：
+真正的状态位：
 
 | 字段 | 含义 | 依据 |
 | --- | --- | --- |
-| `field_6` | 背包里有同 ID 的宠物卡时置 1，代表“可激活” | 激活前 `GetDogInfo` 只有 `field_6`，同一时刻 `ItemService.Bag` 里存在 `90031`（uid 3069）。 |
-| `owned` | 已激活（可上场）的宠物置 1 | `ActivateDog` 之后 `field_6` 消失、`owned` 出现；`DeployDog` 只接受带 `owned` 的宠物。 |
-| `field_10` | 疑似“新获得未查看”，激活后出现、`ViewDog` 后消失 | 语义未完全证明，当前不参与业务判断。 |
+| `field_6` | 背包里有同 ID 宠物卡 → 1 = 可激活 | 激活前只有 `field_6`，同时 `ItemService.Bag` 里存在 `90031`（uid 3069） |
+| `owned` | 已激活（可上场） | `ActivateDog` 后 `field_6` 消失、`owned` 出现；`DeployDog` 只接受带 `owned` 的 |
+| `field_10` | 疑似"新获得未查看"（激活后出现、`ViewDog` 后消失） | 语义未完全证明，**不参与业务判断** |
 
-宠物本体是 `type = 8` 的道具（`ItemInfo.json`），所以“拥有卡片”和“已获得宠物”是两件事：卡片只是激活材料，激活时会被服务端消耗。
+宠物本体是 `type = 8` 的道具，所以"有卡片"和"已获得宠物"是两件事：**卡片只是激活材料，激活时被服务端消耗**。
 
-### 激活
-
-`ActivateDogRequest { dog_id = 1 }` / `ActivateDogReply { dog = 1 }`，回包字段 1 是激活后的 `DogInfo`。抓包样本（ws_00148 / ws_00149，比熊犬 90031）：
+## 二、激活
 
 ```
-请求 body: 08afbf05
-回包 body: 0a1c 08afbf05 1209e6af94e7868ae78aac 188827 2001 2864 3001 3801 5001
-           ^dog     id=90031  name=比熊犬        price  st  lv  f6  owned f10
+ActivateDogRequest { dog_id = 1 }
+ActivateDogReply   { dog = 1 }        // field 1 = 激活后的 DogInfo
 ```
 
-激活成功后服务端紧接着推送 `ItemNotify`：宠物卡（`90031`，uid 3069）`delta = -1`，证明卡片被消耗。`core/src/services/pets.ts` 的 `activateDog()` 在发请求前用 `field_6` 或背包卡片计算出的 `activatable` 做校验，发请求后再拉一次快照确认 `owned`。
+样本（比熊犬 90031，`ws_00148` / `ws_00149`）：
 
-### 上场与收回
+```
+请求: 08afbf05
+回包: 0a1c 08afbf05 1209e6af94e7868ae78aac 188827 2001 2864 3001 3801 5001
+       │    │        │                       │      │    │    │    │    └ f10
+       │    │        │                       │      │    │    │    └ owned
+       │    │        │                       │      │    │    └ f6
+       │    │        │                       │      │    └ lv(100)
+       │    │        │                       │      └ st(1)
+       │    │        │                       └ price
+       │    │        └ name = 比熊犬
+       │    └ id = 90031
+       └ DogInfo
+```
 
-- `DeployDogRequest { dog_id = 1 }` / `DeployDogReply { dog_id = 1 }`，只能对已激活的宠物调用；成功后 `GetDogInfoReply.current_dog_id` 变为该宠物 ID，并推送 `DogSkinChangeNotify`。
-- `WithdrawDogRequest {}`（真实请求体为空）/ `WithdrawDogReply { dog_id = 1 }`；收回后 `current_dog_id` 缺失。
+激活成功后服务端**紧接着推 `ItemNotify`**：宠物卡 90031（uid 3069）`delta = -1` —— 卡片被消耗的证据。
 
-### 狗粮
+实现：`activateDog()` 发请求前用 `field_6` 或背包卡片算出的 `activatable` 校验，发完再拉一次快照确认 `owned`。
 
-- `AddFoodRequest { item_id = 1, count = 2 }` 是宠物页狗盆的“确定”，回包的 `protect_time` 是使用后的剩余秒数。走的是 `DogService` 而不是 `ItemService.Use`。
-- `GetDogInfoReply.items[].status`（字段 3）是状态位不是库存，三种狗粮都可能返回 1；真实库存必须读 `ItemService.Bag`。
+## 三、上场与收回
 
-### 守护记录
+| 操作 | 请求 | 回包 | 注意 |
+| --- | --- | --- | --- |
+| 上场 | `DeployDogRequest { dog_id = 1 }` | `DeployDogReply { dog_id = 1 }` | 只能对已激活的用；成功后 `current_dog_id` 变为该 ID，并推 `DogSkinChangeNotify` |
+| 收回 | `WithdrawDogRequest {}`（真实为空体） | `WithdrawDogReply { dog_id = 1 }` | 收回后 `current_dog_id` 缺失 |
 
-`GetProtectLogsRequest { field_1 = 1, count = 2, field_3 = 3 }`，真实点击固定发送 `{ 0, 100, 0 }`；字段 1/3 的语义尚未证明，当前不解释成分页或筛选。
+## 四、狗粮
 
-## 验证方式
+- `AddFoodRequest { item_id = 1, count = 2 }` 是狗盆「确定」，回包 `protect_time` 是使用后的剩余秒数。走 `DogService`，**不是** `ItemService.Use`
+- `GetDogInfoReply.items[].status`（field 3）是**状态位不是库存**，三种狗粮都可能返回 1；真实库存必须查 `ItemService.Bag`
 
-以上结论均通过 2026-09-14 的真实抓包复核得出：激活流程以 ws_00148 / ws_00149 样本验证回包字节与 `ItemNotify` 推送；各字段的判定依据见协议明细中的「依据」列。语义未证明的字段（`field_10`、`GetProtectLogsRequest` 字段 1/3）保留原始观察，不参与业务判断。
+## 五、守护记录
 
-**注意事项**：`GetDogInfoReply.items[].status` 是状态位不是库存，读取真实库存必须查询 `ItemService.Bag`，否则会误判狗粮数量。
+`GetProtectLogsRequest { field_1 = 1, count = 2, field_3 = 3 }`，真实点击固定发 `{ 0, 100, 0 }`。字段 1/3 语义未证明，**不要解释成分页或筛选**。
+
+## 六、验证
+
+以上来自 2026-09-14 真实抓包（`pnpm -C core exec tsx ../tools/decode-latest-protocols.js <capture-dir> --all`）：激活链路以 `ws_00148` / `ws_00149` 验证回包字节与 `ItemNotify`。语义未证明的字段保留原始观察，不参与业务。
+
+> 易错点：把 `items[].status` 当库存 → 狗粮数量永远显示"有"，喂食时才发现为 0。
