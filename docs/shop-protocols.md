@@ -129,3 +129,16 @@ pnpm -C core exec node ../tools/decode-shop-protocols.js <capture-dir>
 5. `PurchaseReply.success` 是布尔，不是数量
 6. `RechargeInfoNotify` field 1 是嵌套消息，不是交易号
 7. Mall 的 slot 4 与 Shop 的 `shop_id=4` 不是一回事
+
+## 八、验证状态（2026-11-22）
+
+| 核对项 | 方式 | 结果 |
+| --- | --- | --- |
+| `MallGoods` field 1–12 | 比对 `core/src/proto/mallpb.proto` | 完全一致（`product_type` 注释明确"不是可购买标志"） |
+| `ActiveNPC` field 1–9 | 比对 `mysteryshoppb.proto` | 一致：field 3 `unknown_field_3`、field 4 `reward_count`、field 8 `reserved` |
+| `PurchaseLimit` 1/2/3 | 比对 proto + 运行时 `/api/game-mall` | 一致；实测不限购商品 `limit` 为 `null`，与"看是否存在"的判定吻合 |
+| `price` = 货币ID + 单价 | 运行时 `/api/game-mall` | 实测 `{id:1002,count:42}`，货币为点券 |
+| 折扣文案格式 | 运行时接口 | 实测 `9.1折`，与文档示例同格式 |
+| 神秘商人字段值 | 运行时 `/api/mystery-shop` | **未验证**：当时 `active=false`，无在场商人 |
+
+> 缺口：`gamepb` body 经 TSDK 加密，HTTP 抓包只能看到 WSS 外壳；字段级证据仍以 `proto` 与当年解密抓包为准。需要重新验证时，用 `tools/decode-shop-protocols.js` 解一份新抓包，`roundtrip: true` 即字段无遗漏。

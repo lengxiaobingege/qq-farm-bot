@@ -73,3 +73,13 @@ ActivateDogReply   { dog = 1 }        // field 1 = 激活后的 DogInfo
 以上来自 2026-09-14 真实抓包（`pnpm -C core exec tsx ../tools/decode-latest-protocols.js <capture-dir> --all`）：激活链路以 `ws_00148` / `ws_00149` 验证回包字节与 `ItemNotify`。语义未证明的字段保留原始观察，不参与业务。
 
 > 易错点：把 `items[].status` 当库存 → 狗粮数量永远显示"有"，喂食时才发现为 0。
+
+## 七、验证状态（2026-11-22）
+
+| 核对项 | 方式 | 结果 |
+| --- | --- | --- |
+| `DogInfo` 字段号 | 比对 `dogpb.proto` | 一致：`status`=4、`level`=5、可激活=`6`、`owned`=7、`field_10`=10 |
+| "status 恒为 1、不能判状态" | proto 注释 + 运行时 | proto 注释写明"服务端对所有图鉴项均返回 1"；面板 DTO 不暴露 status，用 `owned`/`activatable` |
+| `owned` = 已激活 | 运行时 `/api/pets` | 实测 6 个条目中 `owned: true` 3 个、`activatable: 0`、`currentDogId: null`，三态互不冲突 |
+
+> 缺口：`field_10`（疑似"新获得未查看"）与 `GetProtectLogsRequest` 的字段 1/3 语义仍未证明，保持"不参与业务判断"。
