@@ -314,6 +314,8 @@ node tools/restore-data-backup.js 2026-11-06    # 恢复指定日期（按 --lis
 - **静态资源**：`/game-config` 一年期 immutable 缓存，带 `?v=` 版本参数
 - **HTTPS（可选）**：支持内置证书自启，也可放在 Nginx/Caddy 后面
 
+- **提交前拦截**：仓库内置 `.githooks/pre-commit`，拒绝把 `core/data/`、`.secret.key`、`admin-sessions.json`、`certs/`、`.env` 以及含明文 token/私钥的文件提交入库。新克隆后执行一次 `git config core.hooksPath .githooks` 启用（`--no-verify` 可绕过，慎用）。
+
 部署侧加固清单：让 `3007` 只监听回环、管理端强密码、通知渠道使用专用机器人、定期轮换 `.secret.key` 与备份、不要把 `core/data` 放进 Git。
 
 ## 项目结构

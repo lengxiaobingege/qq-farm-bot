@@ -81,7 +81,7 @@ systemctl start qq-farm-bot
 
 ## 五、安全底线
 
-- `core/data/` 已在 `.gitignore`；提交前用 `git status` 确认没有 `data*`、`*.secret.key`、`admin-sessions.json`
+- `core/data/` 已在 `.gitignore`；仓库还内置了 `.githooks/pre-commit` 做硬拦截：路径命中 `data/`、`.secret.key`、`admin-sessions.json`、`certs/`、`.env` 直接拒绝，文本文件里扫到 `ghp_`/`github_pat_`/`cfut_`/`AKIA`/私钥头也拒绝；启用一次 `git config core.hooksPath .githooks` 即可
 - 目录权限建议 `700`，文件 `600`（工具写盘时已按此设置）
 - 换机器时先只拷 `data/`，**别把 `.secret.key` 提交到任何仓库**
 - 备份文件可以离线存一份，但不要放进公开的同步盘或 Git

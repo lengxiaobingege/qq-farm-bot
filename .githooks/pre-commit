@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# 提交前检查：拦住不该入库的运行数据与凭据。
+# 安装：git config core.hooksPath .githooks
+# 绕过：git commit --no-verify（仅在确认无敏感内容时使用）
+
+set -u
+
+fail=0
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+# ---------- 一、路径规则 ----------
+# 运行数据、密钥、证书、备份、抓包、构建产物
+path_re='(^|/)(core/data/|data/?$|data\.pre[^/]*/|data\.pre-restore[^/]*/|\.secret\.key$|admin-sessions\.json|login-attempts\.json|account-configs/|backups/[^/]*\.enc$|certs/|\.env(\.|$)|.*\.pem$|.*\.key$|.*\.p12$|node_modules/|dist/|web/dist/)'
+
+blocked_paths=$(printf '%s\n' "$staged" | grep -E "$path_re" || true)
+
+if [ -n "$blocked_paths" ]; then
+    echo ""
+    echo "✗ 提交被拒绝：以下文件属于运行数据/凭据/构建产物，不允许入库"
+    printf '%s\n' "$blocked_paths" | sed 's/^/    /'
+    fail=1
+fi
+
+# ---------- 二、内容扫描 ----------
+# 只扫文本类、体积可控的文件，避免拖慢提交
+secret_re='(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|cfut_[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA|OPENSSH|EC|PGP) PRIVATE KEY-----|xox[baprs]-[0-9A-Za-z-]{10,})'
+
+hits=""
+while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    case "$f" in
+        *.png|*.jpg|*.jpeg|*.gif|*.webp|*.ico|*.wasm|*.bin|*.enc|*.gz|*.zip|*.mp3|*.mp4|*.pdf) continue ;;
+    esac
+    size=$(wc -c <"$f" 2>/dev/null || echo 0)
+    [ "$size" -gt 1048576 ] && continue
+    if grep -qEI "$secret_re" "$f" 2>/dev/null; then
+        hits="${hits}${f}"$'\n'
+    fi
+done <<EOF
+$staged
+EOF
+
+if [ -n "$hits" ]; then
+    echo ""
+    echo "✗ 提交被拒绝：以下文件疑似包含明文凭据（token / 私钥）"
+    printf '%s' "$hits" | sed 's/^/    /'
+    fail=1
+fi
+
+# ---------- 三、超大文件提醒 ----------
+big=$(printf '%s\n' "$staged" | while IFS= read -r f; do
+    [ -f "$f" ] && [ "$(wc -c <"$f")" -gt 5242880 ] && echo "$f ($(( $(wc -c <"$f") / 1048576 ))MB)"
+done)
+if [ -n "$big" ]; then
+    echo ""
+    echo "! 注意：以下文件超过 5MB，确认不是误加"
+    printf '%s\n' "$big" | sed 's/^/    /'
+fi
+
+if [ "$fail" -ne 0 ]; then
+    echo ""
+    echo "处理方式："
+    echo "    git restore --staged <文件>        # 从暂存区移除（保留本地文件）"
+    echo "    git rm --cached <文件>             # 已跟踪的文件取消跟踪"
+    echo "    git commit --no-verify             # 确认无敏感内容后强制提交"
+    echo ""
+    exit 1
+fi
+
+exit 0
