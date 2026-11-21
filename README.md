@@ -66,23 +66,24 @@ pnpm build          # 构建前端 + 编译后端
 ### 步骤二：启动
 
 ```bash
-cd core && node dist/index.js      # 前台试跑
+node core/client.js                # 前台试跑（在仓库根目录）
 ```
 
 或使用仓库自带脚本（Linux，后台常驻）：
 
 ```bash
-./start.sh                          # 启动，并建立 3000 → 3007 的转发
+./start.sh                          # 后台启动（内部会拉起 node core/client.js）
 ./stop.sh                           # 停止
 ./watchdog.sh                       # 健康检查，异常自动拉起
+./preflight.sh                      # 启动前自检（依赖、端口、权限）
 ```
 
-> 默认后端监听 `3007`，对外入口固定 `3000`（`.env` 里 `PORT` 可调后端端口，`start.sh` 会重建转发）。
-> 建议只把 `3000` 暴露出去，`3007` 仅本机访问。
+> 后端默认监听 `3007`（`.env` 的 `PORT`/`HOST` 可调）。公网入口用 Cloudflare Tunnel 或 Nginx/Caddy 反代直接指向 `3007`，不需要额外的端口转发。
+> 建议让后端只监听 `127.0.0.1`，由隧道/反代回源到本机，避免同网段直接访问。
 
 ### 步骤三：首次登录
 
-1. 打开 `http://<服务器IP>:3000`
+1. 打开面板地址（自建反代/Tunnel 用你的域名；内网直连用 `http://<服务器IP>:3007`）
 2. 首次部署**没有预设密码**，页面会引导你设置管理员账号与密码（`/api/setup`）
 3. 设置完成后自动登录
 
@@ -230,10 +231,9 @@ systemctl restart qq-farm-bot
 
 | 端口 | 用途 | 建议 |
 | --- | --- | --- |
-| 3000 | 对外入口（反代/转发到 3007） | 仅暴露这个 |
-| 3007 | 后端直连端口 | 只监听回环，或仅内网可达 |
+| 3007 | 面板与 API 唯一端口 | 只监听 `127.0.0.1`，由 Cloudflare Tunnel / Nginx 回源 |
 
-被反向代理或 CDN 挡在前面时，注意 `TRUSTED_PROXY_IPS` 要填真实代理回源 IP，否则登录 IP 判定会失真。
+用 Cloudflare Tunnel 时回源 IP 固定为 `127.0.0.1`，需把 `TRUSTED_PROXY_IPS` 设为回环地址，登录 IP 判定才会取 `CF-Connecting-IP`；用 Nginx/Caddy 反代时填真实反代 IP。
 
 ### 后台常驻（Linux / systemd）
 
@@ -244,8 +244,8 @@ After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/qq-farm-bot/core
-ExecStart=/usr/bin/node dist/index.js
+WorkingDirectory=/opt/qq-farm-bot
+ExecStart=/usr/bin/node core/client.js
 Restart=always
 RestartSec=5
 
@@ -269,7 +269,7 @@ systemctl daemon-reload && systemctl enable --now qq-farm-bot
 | 图鉴/背包出现「种子xxxxxxx」或空白格 | 客户端配置落后，按[游戏资源更新](#游戏资源更新配置与图标)同步 |
 | 某个按钮报 404 | 多为接口未接线（模块移植遗漏），检查 `controllers/admin/*.ts` 是否挂载对应路由 |
 | 活动自动化没执行 | 确认设置页对应活动开关已启用；活动结束会自动静默 |
-| 端口被占用 | 改 `.env` 的 `PORT`（后端），对外仍用 `3000` |
+| 端口被占用 | 改 `.env` 的 `PORT`（默认 `3007`），并同步隧道/反代的回源端口 |
 
 ### 数据与备份
 
@@ -314,7 +314,7 @@ node tools/restore-data-backup.js 2026-11-06    # 恢复指定日期（按 --lis
 - **静态资源**：`/game-config` 一年期 immutable 缓存，带 `?v=` 版本参数
 - **HTTPS（可选）**：支持内置证书自启，也可放在 Nginx/Caddy 后面
 
-部署侧加固清单：改默认端口暴露面、限制 `3007` 仅回环、管理端强密码、通知渠道使用专用机器人、定期轮换 `.secret.key` 与备份、不要把 `core/data` 放进 Git。
+部署侧加固清单：让 `3007` 只监听回环、管理端强密码、通知渠道使用专用机器人、定期轮换 `.secret.key` 与备份、不要把 `core/data` 放进 Git。
 
 ## 项目结构
 
